@@ -9,6 +9,7 @@ import ReportsPage from './pages/ReportsPage.vue';
 import AuditLogPage from './pages/AuditLogPage.vue';
 import AdminPage from './pages/AdminPage.vue';
 import UserManualPage from './pages/UserManualPage.vue';
+import CertificateVerifyPage from './pages/CertificateVerifyPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -22,11 +23,13 @@ export const router = createRouter({
     { path: '/reports', component: ReportsPage, meta: { title: 'Reports' } },
     { path: '/audit-log', component: AuditLogPage, meta: { title: 'Audit Log' } },
     { path: '/user-manual', component: UserManualPage, meta: { title: 'User Manual' } },
-    { path: '/admin', component: AdminPage, meta: { title: 'Admin' } }
+    { path: '/admin', component: AdminPage, meta: { title: 'Admin' } },
+    { path: '/verify/certificate/:verificationId', component: CertificateVerifyPage, meta: { title: 'Certificate Verification' } }
   ]
 });
 
 router.beforeEach((to) => {
+  if (to.path.startsWith('/verify/certificate/')) return;
   const token = localStorage.getItem('token');
   if (to.path === '/login' && token) return '/';
   if (to.path !== '/login' && !token) return '/login';

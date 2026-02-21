@@ -46,6 +46,10 @@ Default seeded admin (from .env):
 ## Environment variables
 Use [.env.example](.env.example).
 
+Certificate verification settings:
+- `CERT_VERIFICATION_SECRET`: HMAC secret used to sign certificate verification links (recommended to set explicitly in production)
+- `PUBLIC_APP_BASE_URL`: public web origin used in certificate QR links (example: `https://shares.example.com`)
+
 ## Auth + RBAC
 Roles enforced server-side:
 - Admin
@@ -103,6 +107,8 @@ Environment/CORS for proxy deployment:
 - Lots: Admin/Officer can print stock certificate PDFs for Active lots from the Lots page
 - Lots: certificate printing now supports explicit `Original` and `Reprint` actions with matching PDF labels
 - Branding: Admin can configure `State of incorporation`, rendered under company name on stock certificates
+- Certificates: each printed certificate includes a verification ID and QR link to public verification page
+- Certificates: verification endpoint checks signed query parameter to detect tampered verification links
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

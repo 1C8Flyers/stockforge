@@ -88,3 +88,8 @@
 	- printing restricted to `Active` lots with clear user-facing errors for non-printable statuses
 	- certificate output supports explicit `ORIGINAL` and `REPRINT` labels
 	- certificate header now includes configurable state of incorporation line from Admin branding settings
+	- certificate authenticity verification added:
+	  - unique verification ID embedded on each certificate
+	  - QR code on certificate links to public verification page
+	  - signed verification query parameter validated by API (tamper check)
+	  - public web route added for certificate verification without login

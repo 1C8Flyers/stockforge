@@ -2,6 +2,8 @@ import { LotStatus, RoleName } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import PDFDocument from 'pdfkit';
 import { z } from 'zod';
+import crypto from 'node:crypto';
+import QRCode from 'qrcode';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
@@ -16,6 +18,46 @@ function formatDate(value: Date) {
 
 function sanitizeFilePart(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function verificationIdForLot(lotId: string) {
+  return `CERT-${lotId}`;
+}
+
+function lotIdFromVerificationId(verificationId: string) {
+  if (!verificationId.startsWith('CERT-')) return null;
+  const lotId = verificationId.slice('CERT-'.length);
+  return lotId.length > 0 ? lotId : null;
+}
+
+function verificationSecret() {
+  return process.env.CERT_VERIFICATION_SECRET || process.env.JWT_SECRET || 'change_me_verify_secret';
+}
+
+function signVerificationId(verificationId: string) {
+  return crypto.createHmac('sha256', verificationSecret()).update(verificationId).digest('hex');
+}
+
+function secureEquals(a: string, b: string) {
+  const aa = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (aa.length !== bb.length) return false;
+  return crypto.timingSafeEqual(aa, bb);
+}
+
+function publicBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
+  const forwardedProto = String(request.headers['x-forwarded-proto'] || '').trim();
+  const proto = forwardedProto || request.protocol || 'http';
+  const host = String(request.headers.host || 'localhost:3000');
+  return `${proto}://${host}`;
+}
+
+function appBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
+  const configured = (process.env.PUBLIC_APP_BASE_URL || '').trim();
+  if (configured) return configured;
+  const origin = String(request.headers.origin || '').trim();
+  if (origin) return origin;
+  return publicBaseUrl(request);
 }
 
 function incorporationPhrase(state: string) {
@@ -40,6 +82,9 @@ function buildCertificatePdf(input: {
   issuedDate: Date;
   lotId: string;
   printLabel: 'ORIGINAL' | 'REPRINT';
+  verificationId: string;
+  verificationUrl: string;
+  verificationQrPng: Buffer;
 }): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 54 });
@@ -65,6 +110,10 @@ function buildCertificatePdf(input: {
 
     doc.font('Helvetica-Bold').fontSize(10).fillColor(input.printLabel === 'REPRINT' ? '#b45309' : '#166534').text(input.printLabel, {
       align: 'right'
+    });
+    doc.image(input.verificationQrPng, doc.page.width - doc.page.margins.right - 90, doc.page.margins.top + 10, {
+      width: 80,
+      height: 80
     });
     doc.moveDown(0.2);
 
@@ -127,11 +176,67 @@ function buildCertificatePdf(input: {
         align: 'right'
       });
 
+    doc
+      .font('Helvetica')
+      .fontSize(8)
+      .fillColor('#334155')
+      .text(`Verification ID: ${input.verificationId}`, doc.page.margins.left, doc.page.height - doc.page.margins.bottom - 28, {
+        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+        align: 'left'
+      });
+    doc
+      .font('Helvetica')
+      .fontSize(7)
+      .fillColor('#475569')
+      .text(input.verificationUrl, doc.page.margins.left, doc.page.height - doc.page.margins.bottom - 18, {
+        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+        align: 'left'
+      });
+
     doc.end();
   });
 }
 
 export async function certificateRoutes(app: FastifyInstance) {
+  app.get('/verify/:verificationId', async (request) => {
+    const { verificationId } = z.object({ verificationId: z.string() }).parse(request.params);
+    const { sig } = z.object({ sig: z.string().optional().default('') }).parse(request.query);
+
+    const expectedSig = signVerificationId(verificationId);
+    const signatureValid = sig.length > 0 && secureEquals(sig, expectedSig);
+
+    const lotId = lotIdFromVerificationId(verificationId);
+    if (!lotId) {
+      return {
+        valid: false,
+        integrity: 'invalid-format',
+        message: 'Certificate ID format is invalid.'
+      };
+    }
+
+    const lot = await prisma.shareLot.findUnique({ where: { id: lotId }, include: { owner: true } });
+
+    if (!lot) {
+      return {
+        valid: false,
+        integrity: signatureValid ? 'not-found' : 'invalid-signature',
+        message: 'Certificate could not be verified.'
+      };
+    }
+
+    return {
+      valid: signatureValid,
+      integrity: signatureValid ? 'verified' : 'invalid-signature',
+      verificationId,
+      certificateNumber: lot.certificateNumber || lot.id,
+      ownerName: ownerName(lot.owner),
+      shares: lot.shares,
+      lotStatus: lot.status,
+      issuedDate: (lot.acquiredDate || lot.createdAt).toISOString(),
+      message: signatureValid ? 'Certificate verified.' : 'Signature check failed. Certificate may be altered.'
+    };
+  });
+
   app.get('/lots/:lotId.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
     const { lotId } = z.object({ lotId: z.string() }).parse(request.params);
     const { mode } = z
@@ -158,6 +263,10 @@ export async function certificateRoutes(app: FastifyInstance) {
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
     const printLabel = mode === 'reprint' ? 'REPRINT' : 'ORIGINAL';
+    const verificationId = verificationIdForLot(lot.id);
+    const signature = signVerificationId(verificationId);
+    const verificationUrl = `${appBaseUrl(request)}/verify/certificate/${encodeURIComponent(verificationId)}?sig=${signature}`;
+    const verificationQrPng = await QRCode.toBuffer(verificationUrl, { width: 256, margin: 1 });
     const pdf = await buildCertificatePdf({
       appName,
       appIncorporationState,
@@ -166,14 +275,18 @@ export async function certificateRoutes(app: FastifyInstance) {
       shares: lot.shares,
       issuedDate,
       lotId: lot.id,
-      printLabel
+      printLabel,
+      verificationId,
+      verificationUrl,
+      verificationQrPng
     });
 
     await audit(prisma, request.userContext.id, 'PRINT', 'ShareLot', lot.id, {
       certificateNumber,
       status: lot.status,
       shares: lot.shares,
-      mode
+      mode,
+      verificationId
     });
 
     reply.header('Content-Type', 'application/pdf');
