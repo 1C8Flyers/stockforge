@@ -13,21 +13,7 @@ It is designed so ownership is derived from active lots, and posted transfers ar
 
 ---
 
-## 2) Accessing the app
-
-### Local Docker
-- Web: http://localhost:5173
-- API: http://localhost:3000/api
-
-### NAS deployment
-- Web: http://enterprise.local:15173
-- API: http://enterprise.local:13000/api
-
-If login fails due to stale browser data, do a hard refresh.
-
----
-
-## 3) First login
+## 2) First login
 Default seeded admin credentials:
 - Email: `admin@example.com`
 - Password: `ChangeMe123!`
@@ -36,7 +22,7 @@ After first login, change to a secure password in your user-management process.
 
 ---
 
-## 4) Roles and permissions
+## 3) Roles and permissions
 
 - **Admin**: full access, config, user management
 - **Officer**: CRUD operational records, can post transfers and finalize voting operations
@@ -47,7 +33,7 @@ The UI hides/disables actions based on role, and API enforces permissions server
 
 ---
 
-## 5) Main navigation
+## 4) Main navigation
 - **Dashboard**: voting totals, majority threshold, top holders, bloc builder, recent activity
 - **Shareholders**: create and maintain person/entity records
 - **Lots**: create and view share certificates/lots
@@ -59,7 +45,7 @@ The UI hides/disables actions based on role, and API enforces permissions server
 
 ---
 
-## 6) Core concepts you must know
+## 5) Core concepts you must know
 
 ### Share ownership model
 Ownership is calculated from **active share lots**, not from a single “shares” field on shareholder.
@@ -90,7 +76,7 @@ When a meeting is created, voting totals and majority threshold are snapshotted 
 
 ---
 
-## 7) Typical workflow
+## 6) Typical workflow
 
 ### Step A — Create shareholders
 1. Open **Shareholders**.
@@ -134,18 +120,19 @@ Vote entry supports two patterns:
 - **Election**: choose office + candidates, then each present shareholder selects a candidate.
 
 In both cases, recorded results are share-weighted automatically based on each voter’s active eligible shares.
+After a motion vote is recorded, that motion is marked **Closed** and no additional votes can be recorded unless a user explicitly clicks **Reopen voting**.
 5. Use represented-shares values for live decisions.
 
 ---
 
-## 8) Proxies
+## 7) Proxies
 - Proxies are meeting-specific.
 - On create/verify, the app stores `proxySharesSnapshot`.
 - Only **Verified** proxies count in represented shares.
 
 ---
 
-## 9) Reports
+## 8) Reports
 From **Reports** page:
 - **Ownership Report (Cap Table) CSV or PDF**
 - **Meeting Proxy CSV or PDF** (choose meeting first)
@@ -160,7 +147,7 @@ Use these exports for review packets and compliance records.
 
 ---
 
-## 10) Dashboard metrics explained
+## 9) Dashboard metrics explained
 - **Active voting shares**: currently eligible shares under configured rules
 - **Excluded breakdown**: owner-status exclusions, treasury lots, surrendered lots, disputed (if enabled)
 - **Majority threshold**: `floor(activeVotingShares / 2) + 1`
@@ -169,17 +156,17 @@ Use these exports for review packets and compliance records.
 
 ---
 
-## 11) Attachments/uploads
+## 10) Attachments/uploads
 Files uploaded (e.g., proxy documents) are stored on persistent local volume mapped to API uploads path.
 
 ---
 
-## 12) Audit log
+## 11) Audit log
 The system records create/update/post/delete actions with user ID, timestamp, entity context, and JSON diff data for traceability.
 
 ---
 
-## 13) Troubleshooting
+## 12) Troubleshooting
 
 ### “Blocked request. Host is not allowed”
 Use the current deployed version with allowed preview host configuration for `enterprise.local`.
@@ -208,7 +195,7 @@ Use **Retired Shares** only when shares should move to/from the null-owner retir
 
 ---
 
-## 14) Operational best practices
+## 13) Operational best practices
 - Keep Admin accounts limited.
 - Use Officer role for posting/final actions.
 - Keep Clerk role for data entry and draft prep.
@@ -217,7 +204,7 @@ Use **Retired Shares** only when shares should move to/from the null-owner retir
 
 ---
 
-## 15) Admin / Settings quick guide
+## 14) Admin / Settings quick guide
 
 Admin-only page includes:
 - **System Health**: DB connectivity and migration count

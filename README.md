@@ -59,7 +59,7 @@ Roles enforced server-side:
 - Shareholders: CRUD
 - Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates), including `Treasury` status
 - Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, human-readable owner/lot data, and special `Retired Shares` null-owner option
-- Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes), including election-type motions with office/candidate setup
+- Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes), including election-type motions with office/candidate setup and persisted motion close/reopen state
 - Proxies: CRUD with `proxySharesSnapshot` and represented share logic in meeting mode
 - Dashboard endpoint with active voting shares, excluded breakdown, majority threshold, top holders, bloc builder, recent activity
 - Reports CSV/PDF: ownership (cap table), meeting proxy, and detailed meeting reports
@@ -94,6 +94,7 @@ Environment/CORS for proxy deployment:
 - Admin/Settings: user + role management, password reset, voting config toggle, app display name/logo controls, and system health/migration summary
 - Meetings/Votes: attendance-driven per-shareholder ballot entry with automatic share-weighted vote totals
 - Meetings/Votes: election vote type with office + candidates and candidate-level share tallying
+- Meetings/Votes: motions auto-close after votes are recorded; additional votes are blocked until explicitly reopened
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

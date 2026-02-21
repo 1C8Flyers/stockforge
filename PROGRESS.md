@@ -67,6 +67,7 @@
 	- per-shareholder ballots for present attendees
 	- automatic share-weighted tallying from active shares
 	- election vote type with office + candidate setup and candidate totals/winner detail
+	- motions now auto-close after vote recording; reopening is explicit and required for additional voting
 - Reporting enhancements completed:
 	- PDF layout cleanup (table readability and column tuning)
 	- meeting report PDF export with meeting summary, attendance, proxies, motions, and vote details
