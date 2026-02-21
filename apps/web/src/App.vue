@@ -1,5 +1,5 @@
 <template>
-  <RouterView v-if="route.path === '/login' || route.path.startsWith('/verify/certificate/')" />
+  <RouterView v-if="route.path === '/login' || route.path.startsWith('/verify/')" />
   <AppShell v-else>
     <RouterView />
   </AppShell>

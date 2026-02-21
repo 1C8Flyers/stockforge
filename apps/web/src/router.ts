@@ -24,12 +24,17 @@ export const router = createRouter({
     { path: '/audit-log', component: AuditLogPage, meta: { title: 'Audit Log' } },
     { path: '/user-manual', component: UserManualPage, meta: { title: 'User Manual' } },
     { path: '/admin', component: AdminPage, meta: { title: 'Admin' } },
-    { path: '/verify/certificate/:verificationId', component: CertificateVerifyPage, meta: { title: 'Certificate Verification' } }
+    {
+      path: '/verify/certificate/:verificationId',
+      alias: ['/verify/:verificationId', '/verify/stock/:verificationId'],
+      component: CertificateVerifyPage,
+      meta: { title: 'Certificate Verification' }
+    }
   ]
 });
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/verify/certificate/')) return;
+  if (to.path.startsWith('/verify/')) return;
   const token = localStorage.getItem('token');
   if (to.path === '/login' && token) return '/';
   if (to.path !== '/login' && !token) return '/login';
