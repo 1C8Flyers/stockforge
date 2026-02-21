@@ -13,6 +13,24 @@ function shareholderName(s: { firstName: string | null; lastName: string | null;
   return s.entityName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim();
 }
 
+function getVerifiedProxyDelegation(proxies: Array<{ status: string; grantorId: string; proxySharesSnapshot: number; proxyHolderShareholderId: string | null }>) {
+  const proxiedGrantorIds = new Set<string>();
+  const delegatedToHolder = new Map<string, number>();
+
+  for (const p of proxies) {
+    if (p.status !== 'Verified') continue;
+    proxiedGrantorIds.add(p.grantorId);
+    if (p.proxyHolderShareholderId) {
+      delegatedToHolder.set(
+        p.proxyHolderShareholderId,
+        (delegatedToHolder.get(p.proxyHolderShareholderId) || 0) + p.proxySharesSnapshot
+      );
+    }
+  }
+
+  return { proxiedGrantorIds, delegatedToHolder };
+}
+
 export async function meetingRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
     return prisma.meeting.findMany({ include: { snapshot: true }, orderBy: { dateTime: 'desc' } });
@@ -124,16 +142,20 @@ export async function meetingRoutes(app: FastifyInstance) {
       where: { meetingId: id, present: true },
       include: { shareholder: true }
     });
+    const proxies = await prisma.proxy.findMany({ where: { meetingId: id } });
+    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(proxies);
 
     const voters = await Promise.all(
       rows.map(async (row) => ({
         shareholderId: row.shareholderId,
         name: shareholderName(row.shareholder),
-        shares: await getShareholderActiveShares(prisma, row.shareholderId)
+        shares:
+          (proxiedGrantorIds.has(row.shareholderId) ? 0 : await getShareholderActiveShares(prisma, row.shareholderId)) +
+          (delegatedToHolder.get(row.shareholderId) || 0)
       }))
     );
 
-    return voters.sort((a, b) => b.shares - a.shares || a.name.localeCompare(b.name));
+    return voters.filter((v) => v.shares > 0).sort((a, b) => b.shares - a.shares || a.name.localeCompare(b.name));
   });
 
   app.post('/motions/:motionId/votes', { preHandler: requireRoles(...canPostRoles) }, async (request, reply) => {
@@ -142,9 +164,16 @@ export async function meetingRoutes(app: FastifyInstance) {
 
     const motion = await prisma.motion.findUnique({
       where: { id: motionId },
-      include: { meeting: { include: { snapshot: true, attendance: true } } }
+      include: { meeting: { include: { snapshot: true, attendance: true, proxies: true } } }
     });
     if (!motion) return reply.notFound();
+
+    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(motion.meeting.proxies);
+
+    const effectiveSharesForBallot = async (shareholderId: string) => {
+      const activeShares = proxiedGrantorIds.has(shareholderId) ? 0 : await getShareholderActiveShares(prisma, shareholderId);
+      return activeShares + (delegatedToHolder.get(shareholderId) || 0);
+    };
 
     let yesShares = 0;
     let noShares = 0;
@@ -173,7 +202,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         }
         seen.add(ballot.shareholderId);
 
-        const shares = await getShareholderActiveShares(prisma, ballot.shareholderId);
+        const shares = await effectiveSharesForBallot(ballot.shareholderId);
         totals.set(ballot.candidate, (totals.get(ballot.candidate) || 0) + shares);
         resolvedBallots.push({ shareholderId: ballot.shareholderId, candidate: ballot.candidate, shares });
       }
@@ -215,7 +244,7 @@ export async function meetingRoutes(app: FastifyInstance) {
           }
           seen.add(ballot.shareholderId);
 
-          const shares = await getShareholderActiveShares(prisma, ballot.shareholderId);
+          const shares = await effectiveSharesForBallot(ballot.shareholderId);
           resolvedBallots.push({ shareholderId: ballot.shareholderId, choice: ballot.choice, shares });
           if (ballot.choice === 'yes') yesShares += shares;
           else if (ballot.choice === 'no') noShares += shares;
@@ -255,7 +284,9 @@ export async function meetingRoutes(app: FastifyInstance) {
     if (!meeting) return reply.notFound();
 
     let presentShares = 0;
+    const { proxiedGrantorIds } = getVerifiedProxyDelegation(meeting.proxies as any);
     for (const row of meeting.attendance.filter((a) => a.present)) {
+      if (proxiedGrantorIds.has(row.shareholderId)) continue;
       presentShares += await getShareholderActiveShares(prisma, row.shareholderId);
     }
 

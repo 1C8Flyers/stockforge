@@ -37,6 +37,10 @@
           <Select v-model="proxyForm.grantorId" label="Grantor">
             <option value="">Grantor</option><option v-for="s in shareholders" :value="s.id" :key="s.id">{{ displayName(s) }}</option>
           </Select>
+          <Select v-model="proxyForm.proxyHolderShareholderId" label="Proxy holder shareholder (optional)">
+            <option value="">External/non-shareholder</option>
+            <option v-for="s in shareholders" :value="s.id" :key="`holder-${s.id}`">{{ displayName(s) }}</option>
+          </Select>
           <Input v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
           <Button type="submit" :disabled="!selectedMeetingId">Create proxy</Button>
         </form>
@@ -75,13 +79,16 @@
         <p class="mt-1 text-xs text-slate-500">Toggle who is present for the selected meeting.</p>
         <ul class="mt-3 space-y-2">
           <li v-for="s in shareholders" :key="s.id" class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <span class="text-slate-800">{{ displayName(s) }}</span>
+            <span class="text-slate-800">
+              {{ displayName(s) }}
+              <span v-if="proxyForGrantor(s.id)" class="ml-2 text-xs text-amber-700">(proxied to {{ proxyForGrantor(s.id)?.proxyHolderName }})</span>
+            </span>
             <label class="inline-flex items-center gap-2 text-slate-600">
               <input
                 type="checkbox"
                 class="h-4 w-4 rounded border-slate-300"
                 :checked="isPresent(s.id)"
-                :disabled="!canWrite"
+                :disabled="!canWrite || !!proxyForGrantor(s.id)"
                 @change="setAttendance(s.id, ($event.target as HTMLInputElement).checked)"
               />
               Present
@@ -185,7 +192,7 @@ const presentVoters = ref<Array<{ shareholderId: string; name: string; shares: n
 const mode = ref<Record<string, any>>({});
 const selectedMeetingId = ref('');
 const meetingForm = ref({ title: '', dateTime: '' });
-const proxyForm = ref({ grantorId: '', proxyHolderName: '' });
+const proxyForm = ref({ grantorId: '', proxyHolderName: '', proxyHolderShareholderId: '' });
 const motionForm = ref({ type: 'STANDARD' as 'STANDARD' | 'ELECTION', title: '', text: '', officeTitle: '', candidatesText: '' });
 const voteForms = ref<Record<string, Record<string, string>>>({});
 const auth = useAuthStore();
@@ -242,10 +249,11 @@ const createProxy = async () => {
     meetingId: selectedMeetingId.value,
     grantorId: proxyForm.value.grantorId,
     proxyHolderName: proxyForm.value.proxyHolderName,
+    proxyHolderShareholderId: proxyForm.value.proxyHolderShareholderId || null,
     receivedDate: new Date().toISOString(),
     status: 'Draft'
   });
-  proxyForm.value = { grantorId: '', proxyHolderName: '' };
+  proxyForm.value = { grantorId: '', proxyHolderName: '', proxyHolderShareholderId: '' };
   await selectMeeting(selectedMeetingId.value);
   await refreshSelectedMode();
 };
@@ -319,6 +327,10 @@ const recordVote = async (motionId: string) => {
 const latestVote = (motion: any) => {
   if (!motion?.votes?.length) return null;
   return motion.votes[motion.votes.length - 1];
+};
+
+const proxyForGrantor = (shareholderId: string) => {
+  return proxies.value.find((p: any) => p.grantorId === shareholderId && p.status === 'Verified');
 };
 
 const motionType = (motion: any) => motion?.type || 'STANDARD';
