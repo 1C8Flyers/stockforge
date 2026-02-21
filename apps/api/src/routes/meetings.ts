@@ -14,15 +14,13 @@ function shareholderName(s: { firstName: string | null; lastName: string | null;
 }
 
 function getVerifiedProxyDelegation(
-  proxies: Array<{ status: string; grantorId: string; proxySharesSnapshot: number; proxyHolderShareholderId: string | null }>,
-  presentGrantorIds: Set<string> = new Set()
+  proxies: Array<{ status: string; grantorId: string; proxySharesSnapshot: number; proxyHolderShareholderId: string | null }>
 ) {
   const proxiedGrantorIds = new Set<string>();
   const delegatedToHolder = new Map<string, number>();
 
   for (const p of proxies) {
     if (p.status !== 'Verified') continue;
-    if (presentGrantorIds.has(p.grantorId)) continue;
     proxiedGrantorIds.add(p.grantorId);
     if (p.proxyHolderShareholderId) {
       delegatedToHolder.set(
@@ -146,9 +144,8 @@ export async function meetingRoutes(app: FastifyInstance) {
       where: { meetingId: id, present: true },
       include: { shareholder: true }
     });
-    const presentIds = new Set(rows.map((r) => r.shareholderId));
     const proxies = await prisma.proxy.findMany({ where: { meetingId: id } });
-    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(proxies, presentIds);
+    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(proxies);
 
     const voters = await Promise.all(
       rows.map(async (row) => ({
@@ -174,7 +171,7 @@ export async function meetingRoutes(app: FastifyInstance) {
     if (!motion) return reply.notFound();
 
     const presentIds = new Set(motion.meeting.attendance.filter((a) => a.present).map((a) => a.shareholderId));
-    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(motion.meeting.proxies, presentIds);
+    const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(motion.meeting.proxies);
 
     const effectiveSharesForBallot = async (shareholderId: string) => {
       const activeShares = proxiedGrantorIds.has(shareholderId) ? 0 : await getShareholderActiveShares(prisma, shareholderId);
@@ -288,8 +285,7 @@ export async function meetingRoutes(app: FastifyInstance) {
     if (!meeting) return reply.notFound();
 
     let presentShares = 0;
-    const presentIds = new Set(meeting.attendance.filter((a) => a.present).map((a) => a.shareholderId));
-    const { proxiedGrantorIds } = getVerifiedProxyDelegation(meeting.proxies as any, presentIds);
+    const { proxiedGrantorIds } = getVerifiedProxyDelegation(meeting.proxies as any);
     for (const row of meeting.attendance.filter((a) => a.present)) {
       if (proxiedGrantorIds.has(row.shareholderId)) continue;
       presentShares += await getShareholderActiveShares(prisma, row.shareholderId);
