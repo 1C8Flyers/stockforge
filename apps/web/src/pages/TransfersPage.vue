@@ -19,7 +19,7 @@
         <option value="">Lot</option>
         <option v-for="l in filteredLots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option>
       </select>
-      <input v-model.number="form.sharesTaken" type="number" min="1" placeholder="Shares" />
+      <input v-model="form.sharesTaken" type="number" min="1" placeholder="Share Quantity" />
       <input v-model="form.notes" placeholder="Notes" />
       <button>{{ editingId ? 'Save draft' : 'Create draft' }}</button>
       <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
@@ -56,7 +56,7 @@ const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
 const lots = ref<any[]>([]);
 const CORPORATION_VALUE = '__CORPORATION__';
-const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1, notes: '' });
+const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' });
 const editingId = ref<string | null>(null);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
@@ -92,7 +92,7 @@ watch(
 
 const clearForm = () => {
   editingId.value = null;
-  form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1, notes: '' };
+  form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' };
 };
 
 const save = async () => {
@@ -101,7 +101,7 @@ const save = async () => {
     toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === CORPORATION_VALUE ? null : form.value.toOwnerId,
     transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
     notes: form.value.notes || undefined,
-    lines: [{ lotId: form.value.lotId, sharesTaken: form.value.sharesTaken }]
+    lines: [{ lotId: form.value.lotId, sharesTaken: Number(form.value.sharesTaken) }]
   };
 
   if (editingId.value) {
@@ -123,7 +123,7 @@ const editDraft = (t: any) => {
     toOwnerId: t.toOwnerId || CORPORATION_VALUE,
     transferDate: t.transferDate ? new Date(t.transferDate).toISOString().slice(0, 10) : '',
     lotId: firstLine?.lotId || '',
-    sharesTaken: firstLine?.sharesTaken || 1,
+    sharesTaken: firstLine?.sharesTaken ? String(firstLine.sharesTaken) : '',
     notes: t.notes || ''
   };
 };
