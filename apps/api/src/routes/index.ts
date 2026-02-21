@@ -1,0 +1,24 @@
+import { FastifyInstance } from 'fastify';
+import { authRoutes } from './auth.js';
+import { configRoutes } from './config.js';
+import { shareholderRoutes } from './shareholders.js';
+import { lotRoutes } from './lots.js';
+import { transferRoutes } from './transfers.js';
+import { meetingRoutes } from './meetings.js';
+import { proxyRoutes } from './proxies.js';
+import { dashboardRoutes } from './dashboard.js';
+import { reportRoutes } from './reports.js';
+import { uploadRoutes } from './uploads.js';
+
+export async function routes(app: FastifyInstance) {
+  await app.register(authRoutes, { prefix: '/auth' });
+  await app.register(configRoutes, { prefix: '/config' });
+  await app.register(shareholderRoutes, { prefix: '/shareholders' });
+  await app.register(lotRoutes, { prefix: '/lots' });
+  await app.register(transferRoutes, { prefix: '/transfers' });
+  await app.register(meetingRoutes, { prefix: '/meetings' });
+  await app.register(proxyRoutes, { prefix: '/proxies' });
+  await app.register(dashboardRoutes, { prefix: '/dashboard' });
+  await app.register(reportRoutes, { prefix: '/reports' });
+  await app.register(uploadRoutes, { prefix: '/uploads' });
+}

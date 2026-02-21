@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  Admin
+  Officer
+  Clerk
+  ReadOnly
+}
+
+enum ShareholderType {
+  PERSON
+  ENTITY
+}
+
+enum ShareholderStatus {
+  Active
+  Inactive
+  DeceasedOutstanding
+  DeceasedSurrendered
+}
+
+enum LotStatus {
+  Active
+  TransferredOut
+  Surrendered
+  Disputed
+}
+
+enum TransferStatus {
+  DRAFT
+  POSTED
+}
+
+enum ProxyStatus {
+  Draft
+  Verified
+  Revoked
+}
+
+enum VoteRule {
+  SIMPLE_MAJORITY
+}
+
+enum VoteResult {
+  Passed
+  Failed
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  userRoles    UserRole[]
+  attachments  Attachment[]
+  auditLogs    AuditLog[]
+  appConfigUpdates AppConfig[]
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  name      RoleName   @unique
+  userRoles UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model AppConfig {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  value         String
+  updatedById   String?
+  updatedAt     DateTime @updatedAt
+  updatedByUser User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model Shareholder {
+  id               String            @id @default(cuid())
+  type             ShareholderType
+  firstName        String?
+  lastName         String?
+  entityName       String?
+  email            String?
+  phone            String?
+  address1         String?
+  address2         String?
+  city             String?
+  state            String?
+  postalCode       String?
+  status           ShareholderStatus @default(Active)
+  notes            String?
+  tags             String[]          @default([])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  lots             ShareLot[]
+  transfersFrom    Transfer[]        @relation("transferFrom")
+  transfersTo      Transfer[]        @relation("transferTo")
+  attendance       Attendance[]
+  proxyGrantor     Proxy[]           @relation("proxyGrantor")
+  proxyHolderLinks Proxy[]           @relation("proxyHolderLink")
+}
+
+model ShareLot {
+  id                String     @id @default(cuid())
+  ownerId           String
+  shares            Int
+  status            LotStatus  @default(Active)
+  certificateNumber String?
+  acquiredDate      DateTime?
+  source            String?
+  notes             String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  owner             Shareholder @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  transferLines     TransferLine[]
+
+  @@index([ownerId])
+}
+
+model Transfer {
+  id          String         @id @default(cuid())
+  fromOwnerId String?
+  toOwnerId   String?
+  meetingId   String?
+  status      TransferStatus @default(DRAFT)
+  postedAt    DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  fromOwner   Shareholder?   @relation("transferFrom", fields: [fromOwnerId], references: [id], onDelete: SetNull)
+  toOwner     Shareholder?   @relation("transferTo", fields: [toOwnerId], references: [id], onDelete: SetNull)
+  lines       TransferLine[]
+
+  @@index([status])
+}
+
+model TransferLine {
+  id         String   @id @default(cuid())
+  transferId String
+  lotId      String
+  sharesTaken Int
+  transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  lot        ShareLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+}
+
+model Meeting {
+  id         String          @id @default(cuid())
+  title      String
+  dateTime   DateTime
+  snapshotId String?         @unique
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  snapshot   MeetingSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  attendance Attendance[]
+  motions    Motion[]
+  proxies    Proxy[]
+}
+
+model MeetingSnapshot {
+  id                String   @id @default(cuid())
+  activeVotingShares Int
+  excludedShares    Int
+  majorityThreshold Int
+  rulesJson         Json
+  meeting           Meeting?
+}
+
+model Proxy {
+  id                       String      @id @default(cuid())
+  meetingId                String
+  grantorId                String
+  proxyHolderName          String
+  proxyHolderShareholderId String?
+  receivedDate             DateTime
+  status                   ProxyStatus @default(Draft)
+  proxySharesSnapshot      Int
+  attachmentId             String?      @unique
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  meeting                  Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  grantor                  Shareholder @relation("proxyGrantor", fields: [grantorId], references: [id], onDelete: Restrict)
+  proxyHolderShareholder   Shareholder? @relation("proxyHolderLink", fields: [proxyHolderShareholderId], references: [id], onDelete: SetNull)
+  attachment               Attachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+}
+
+model Attendance {
+  id            String      @id @default(cuid())
+  meetingId      String
+  shareholderId  String
+  present        Boolean     @default(false)
+  meeting        Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  shareholder    Shareholder @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, shareholderId])
+}
+
+model Motion {
+  id        String    @id @default(cuid())
+  meetingId String
+  title     String
+  text      String
+  voteRule  VoteRule  @default(SIMPLE_MAJORITY)
+  createdAt DateTime  @default(now())
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  votes     Vote[]
+}
+
+model Vote {
+  id           String     @id @default(cuid())
+  motionId      String
+  yesShares     Int
+  noShares      Int
+  abstainShares Int
+  result        VoteResult
+  createdAt     DateTime   @default(now())
+  motion        Motion     @relation(fields: [motionId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  path         String
+  originalName String
+  mimeType     String
+  size         Int
+  createdBy    String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  proxy        Proxy?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  diffJson   Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+}

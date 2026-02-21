@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+!.env.example
+apps/api/uploads
+apps/api/dist
+apps/web/dist
+coverage
+*.log
+.DS_Store

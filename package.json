@@ -1,0 +1,18 @@
+{
+  "name": "cottonwood-share-manager",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run -w @cottonwood/shared build && npm run -w @cottonwood/api build && npm run -w @cottonwood/web build",
+    "dev": "npm run -w @cottonwood/api dev",
+    "dev:web": "npm run -w @cottonwood/web dev",
+    "dev:api": "npm run -w @cottonwood/api dev",
+    "prisma:generate": "npm run -w @cottonwood/api prisma:generate",
+    "prisma:migrate": "npm run -w @cottonwood/api prisma:migrate",
+    "seed": "npm run -w @cottonwood/api seed"
+  }
+}
