@@ -39,7 +39,29 @@
         </form>
         <p v-else class="mt-2 text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
         <ul class="mt-3 space-y-2">
-          <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</li>
+          <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</span>
+              <div v-if="canWrite" class="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  :disabled="p.status === 'Verified'"
+                  @click="setProxyStatus(p.id, 'Verified')"
+                >
+                  Verify
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  :disabled="p.status === 'Revoked'"
+                  @click="setProxyStatus(p.id, 'Revoked')"
+                >
+                  Revoke
+                </Button>
+              </div>
+            </div>
+          </li>
         </ul>
       </Card>
     </div>
@@ -97,6 +119,12 @@ const createProxy = async () => {
   });
   proxyForm.value = { grantorId: '', proxyHolderName: '' };
   await selectMeeting(selectedMeetingId.value);
+};
+
+const setProxyStatus = async (id: string, status: 'Verified' | 'Revoked') => {
+  await api.put(`/proxies/${id}`, { status });
+  await selectMeeting(selectedMeetingId.value);
+  await load();
 };
 
 onMounted(load);

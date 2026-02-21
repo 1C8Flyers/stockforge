@@ -11,27 +11,91 @@ function shareholderName(s: { firstName: string | null; lastName: string | null;
   return s.entityName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim();
 }
 
-function renderSimplePdf(title: string, subtitle: string, headers: string[], rows: string[][]): Promise<Buffer> {
+type PdfColumn = {
+  key: string;
+  label: string;
+  width: number;
+  align?: 'left' | 'right';
+};
+
+function cellText(value: unknown, maxLength = 64) {
+  const text = String(value ?? '');
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], rows: Record<string, unknown>[]): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'LETTER', margin: 40 });
     const chunks: Buffer[] = [];
+    const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+    const rowHeight = 22;
+    const pageBottom = () => doc.page.height - doc.page.margins.bottom;
+
+    const drawHeaderRow = (y: number) => {
+      let x = doc.page.margins.left;
+      doc.save();
+      doc.rect(x, y, tableWidth, rowHeight).fill('#f1f5f9');
+      doc.restore();
+      doc.strokeColor('#cbd5e1').lineWidth(0.7).rect(x, y, tableWidth, rowHeight).stroke();
+
+      for (const col of columns) {
+        doc.font('Helvetica-Bold').fillColor('#0f172a').fontSize(9).text(col.label, x + 6, y + 7, {
+          width: col.width - 12,
+          align: col.align === 'right' ? 'right' : 'left',
+          lineBreak: false,
+          ellipsis: true
+        });
+        x += col.width;
+      }
+    };
+
+    const drawDataRow = (row: Record<string, unknown>, y: number, shade: boolean) => {
+      let x = doc.page.margins.left;
+      if (shade) {
+        doc.save();
+        doc.rect(x, y, tableWidth, rowHeight).fill('#f8fafc');
+        doc.restore();
+      }
+      doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(x, y, tableWidth, rowHeight).stroke();
+
+      for (const col of columns) {
+        doc.font('Helvetica').fillColor('#111827').fontSize(9).text(cellText(row[col.key]), x + 6, y + 7, {
+          width: col.width - 12,
+          align: col.align === 'right' ? 'right' : 'left',
+          lineBreak: false,
+          ellipsis: true
+        });
+        x += col.width;
+      }
+    };
 
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-    doc.fontSize(18).text(title);
+    doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(title);
     doc.moveDown(0.3);
-    doc.fontSize(10).fillColor('#666666').text(subtitle);
+    doc.font('Helvetica').fontSize(10).fillColor('#64748b').text(subtitle);
     doc.moveDown();
 
-    doc.fillColor('#000000').fontSize(10);
-    doc.text(headers.join('  |  '), { underline: true });
-    doc.moveDown(0.3);
+    let y = doc.y;
+    drawHeaderRow(y);
+    y += rowHeight;
 
-    for (const row of rows) {
-      const line = row.join('  |  ');
-      doc.text(line, { lineGap: 2 });
-      if (doc.y > 730) doc.addPage();
+    rows.forEach((row, index) => {
+      if (y + rowHeight > pageBottom()) {
+        doc.addPage();
+        y = doc.page.margins.top;
+        drawHeaderRow(y);
+        y += rowHeight;
+      }
+      drawDataRow(row, y, index % 2 === 1);
+      y += rowHeight;
+    });
+
+    if (rows.length === 0) {
+      doc.moveDown(0.4);
+      doc.font('Helvetica').fontSize(10).fillColor('#6b7280').text('No records found.');
     }
 
     doc.end();
@@ -97,8 +161,15 @@ export async function reportRoutes(app: FastifyInstance) {
     const pdf = await renderSimplePdf(
       'Ownership Report (Cap Table)',
       `Generated ${new Date().toLocaleString()}`,
-      ['Name', 'Status', 'Active', 'Excluded', 'Email', 'Phone'],
-      data.map((r) => [r.name, r.status, String(r.activeShares), String(r.excludedShares), r.email || '—', r.phone || '—'])
+      [
+        { key: 'name', label: 'Name', width: 150 },
+        { key: 'status', label: 'Status', width: 85 },
+        { key: 'activeShares', label: 'Active', width: 52, align: 'right' },
+        { key: 'excludedShares', label: 'Excluded', width: 62, align: 'right' },
+        { key: 'email', label: 'Email', width: 120 },
+        { key: 'phone', label: 'Phone', width: 63 }
+      ],
+      data.map((r) => ({ ...r, email: r.email || '—', phone: r.phone || '—' }))
     );
 
     reply.header('Content-Type', 'application/pdf');
@@ -131,6 +202,7 @@ export async function reportRoutes(app: FastifyInstance) {
 
   app.get('/meeting-proxy.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
     const { meetingId } = z.object({ meetingId: z.string() }).parse(request.query);
+    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { title: true, dateTime: true } });
     const proxies = await prisma.proxy.findMany({
       where: { meetingId },
       include: { grantor: true }
@@ -138,15 +210,21 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const pdf = await renderSimplePdf(
       'Meeting Proxy Report',
-      `Meeting ${meetingId} • Generated ${new Date().toLocaleString()}`,
-      ['Grantor', 'Proxy Holder', 'Status', 'Shares', 'Received'],
-      proxies.map((p) => [
-        shareholderName(p.grantor),
-        p.proxyHolderName,
-        p.status,
-        String(p.proxySharesSnapshot),
-        p.receivedDate.toLocaleDateString()
-      ])
+      `${meeting?.title || meetingId} • ${meeting?.dateTime ? new Date(meeting.dateTime).toLocaleString() : ''} • Generated ${new Date().toLocaleString()}`,
+      [
+        { key: 'grantor', label: 'Grantor', width: 170 },
+        { key: 'proxyHolderName', label: 'Proxy Holder', width: 140 },
+        { key: 'status', label: 'Status', width: 70 },
+        { key: 'proxySharesSnapshot', label: 'Shares', width: 55, align: 'right' },
+        { key: 'receivedDate', label: 'Received', width: 97 }
+      ],
+      proxies.map((p) => ({
+        grantor: shareholderName(p.grantor),
+        proxyHolderName: p.proxyHolderName,
+        status: p.status,
+        proxySharesSnapshot: p.proxySharesSnapshot,
+        receivedDate: p.receivedDate.toLocaleDateString()
+      }))
     );
 
     reply.header('Content-Type', 'application/pdf');
