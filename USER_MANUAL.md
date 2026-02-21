@@ -141,8 +141,8 @@ Draft transfers support:
 
 ## 9) Reports
 From **Reports** page:
-- **Cap Table CSV**
-- **Meeting Proxy CSV** (choose meeting first)
+- **Ownership Report (Cap Table) CSV or PDF**
+- **Meeting Proxy CSV or PDF** (choose meeting first)
 
 Use these exports for review packets and compliance records.
 

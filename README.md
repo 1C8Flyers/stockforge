@@ -62,7 +62,7 @@ Roles enforced server-side:
 - Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes)
 - Proxies: CRUD with `proxySharesSnapshot` and represented share logic in meeting mode
 - Dashboard endpoint with active voting shares, excluded breakdown, majority threshold, top holders, bloc builder, recent activity
-- Reports CSV: cap table, meeting proxy report
+- Reports CSV/PDF: ownership (cap table) and meeting proxy reports
 - Upload endpoint storing files on local mounted volume
 - Audit log for create/update/post/delete actions
 
