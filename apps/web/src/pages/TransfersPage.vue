@@ -3,7 +3,7 @@
     <h2>Transfers</h2>
     <p v-if="!canWrite" style="color:#666;">Read-only mode: transfer drafting is disabled.</p>
     <p v-else-if="!canPost" style="color:#666;">Clerk mode: you can draft transfers but cannot post them.</p>
-    <form v-if="canWrite" @submit.prevent="create" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <form v-if="canWrite" @submit.prevent="save" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <select v-model="form.fromOwnerId">
         <option disabled value="">From owner</option>
         <option :value="CORPORATION_VALUE">Corporation</option>
@@ -18,7 +18,8 @@
       <select v-model="form.lotId"><option value="">Lot</option><option v-for="l in lots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option></select>
       <input v-model.number="form.sharesTaken" type="number" min="1" placeholder="Shares" />
       <input v-model="form.notes" placeholder="Notes" />
-      <button>Create draft</button>
+      <button>{{ editingId ? 'Save draft' : 'Create draft' }}</button>
+      <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
     </form>
 
     <table border="1" cellpadding="6" width="100%">
@@ -32,7 +33,11 @@
           <td>{{ formatLines(t.lines) }}</td>
           <td>{{ t.notes || '—' }}</td>
           <td>{{ t.postedAt ? formatDate(t.postedAt) : '—' }}</td>
-          <td><button @click="postTransfer(t.id)" :disabled="!canPost || t.status==='POSTED'">Post</button></td>
+          <td>
+            <button @click="postTransfer(t.id)" :disabled="!canPost || t.status==='POSTED'">Post</button>
+            <button v-if="canWrite" @click="editDraft(t)" :disabled="t.status==='POSTED'">Edit</button>
+            <button v-if="canWrite" @click="cancelDraft(t.id)" :disabled="t.status==='POSTED'">Cancel</button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -49,6 +54,7 @@ const shareholders = ref<any[]>([]);
 const lots = ref<any[]>([]);
 const CORPORATION_VALUE = '__CORPORATION__';
 const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1, notes: '' });
+const editingId = ref<string | null>(null);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
@@ -69,15 +75,47 @@ const load = async () => {
   lots.value = (await api.get('/lots')).data;
 };
 
-const create = async () => {
-  await api.post('/transfers', {
+const clearForm = () => {
+  editingId.value = null;
+  form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1, notes: '' };
+};
+
+const save = async () => {
+  const payload = {
     fromOwnerId: !form.value.fromOwnerId || form.value.fromOwnerId === CORPORATION_VALUE ? null : form.value.fromOwnerId,
     toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === CORPORATION_VALUE ? null : form.value.toOwnerId,
     transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
     notes: form.value.notes || undefined,
     lines: [{ lotId: form.value.lotId, sharesTaken: form.value.sharesTaken }]
-  });
-  form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1, notes: '' };
+  };
+
+  if (editingId.value) {
+    await api.put(`/transfers/${editingId.value}`, payload);
+  } else {
+    await api.post('/transfers', payload);
+  }
+
+  clearForm();
+  await load();
+};
+
+const editDraft = (t: any) => {
+  if (t.status === 'POSTED') return;
+  const firstLine = t.lines?.[0];
+  editingId.value = t.id;
+  form.value = {
+    fromOwnerId: t.fromOwnerId || CORPORATION_VALUE,
+    toOwnerId: t.toOwnerId || CORPORATION_VALUE,
+    transferDate: t.transferDate ? new Date(t.transferDate).toISOString().slice(0, 10) : '',
+    lotId: firstLine?.lotId || '',
+    sharesTaken: firstLine?.sharesTaken || 1,
+    notes: t.notes || ''
+  };
+};
+
+const cancelDraft = async (id: string) => {
+  await api.delete(`/transfers/${id}`);
+  if (editingId.value === id) clearForm();
   await load();
 };
 
