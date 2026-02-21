@@ -1,12 +1,15 @@
 <template>
-  <section style="max-width:360px;margin:40px auto;">
-    <h2>Login</h2>
-    <form @submit.prevent="submit" style="display:grid;gap:8px;">
-      <input v-model="email" placeholder="Email" type="email" required />
-      <input v-model="password" placeholder="Password" type="password" required />
-      <button>Sign in</button>
-      <p v-if="error" style="color:red">{{ error }}</p>
-    </form>
+  <section class="flex min-h-screen items-center justify-center p-4">
+    <Card class="w-full max-w-md">
+      <h2 class="text-2xl font-semibold text-slate-900">Sign in</h2>
+      <p class="mt-1 text-sm text-slate-600">StockForge account access</p>
+      <form @submit.prevent="submit" class="mt-4 grid gap-3">
+        <Input v-model="email" label="Email" type="email" />
+        <Input v-model="password" label="Password" type="password" />
+        <Button type="submit">Sign in</Button>
+        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+      </form>
+    </Card>
   </section>
 </template>
 
@@ -15,6 +18,9 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
+import Button from '../components/ui/Button.vue';
+import Card from '../components/ui/Card.vue';
+import Input from '../components/ui/Input.vue';
 
 const router = useRouter();
 const auth = useAuthStore();

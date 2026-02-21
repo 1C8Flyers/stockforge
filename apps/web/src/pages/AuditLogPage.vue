@@ -1,50 +1,61 @@
 <template>
-  <section>
-    <h2>Audit Log</h2>
-    <form @submit.prevent="load" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <input v-model="filters.entityType" placeholder="Entity type" />
-      <input v-model="filters.action" placeholder="Action" />
-      <input v-model="filters.userId" placeholder="User ID" />
-      <input v-model="filters.from" type="datetime-local" />
-      <input v-model="filters.to" type="datetime-local" />
-      <input v-model.number="filters.limit" type="number" min="1" max="200" placeholder="Limit" />
-      <button>Filter</button>
-    </form>
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-slate-900">Audit Log</h2>
+    <Card>
+      <form @submit.prevent="load" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <Input v-model="filters.entityType" label="Entity type" />
+        <Input v-model="filters.action" label="Action" />
+        <Input v-model="filters.userId" label="User ID" />
+        <Input v-model="filters.from" type="datetime-local" label="From" />
+        <Input v-model="filters.to" type="datetime-local" label="To" />
+        <div class="flex items-end gap-2">
+          <Input v-model="filters.limit" type="number" min="1" max="200" label="Limit" />
+          <Button type="submit">Filter</Button>
+        </div>
+      </form>
+    </Card>
 
-    <table border="1" cellpadding="6" width="100%">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>User</th>
-          <th>Action</th>
-          <th>Entity</th>
-          <th>Record</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in rows" :key="row.id">
-          <td>{{ new Date(row.createdAt).toLocaleString() }}</td>
-          <td>{{ row.user?.email || row.userId }}</td>
-          <td>{{ actionLabel(row.action) }}</td>
-          <td>{{ entityLabel(row.entityType) }}</td>
-          <td>{{ shortId(row.entityId) }}</td>
-          <td>
-            <div>{{ summarizeDiff(row.diffJson) }}</div>
-            <details>
-              <summary>View raw</summary>
-              <pre style="white-space:pre-wrap;max-width:600px;overflow:auto;">{{ pretty(row.diffJson) }}</pre>
-            </details>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <Card class="p-0">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Time</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">User</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Action</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Entity</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Record</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Details</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            <tr v-for="row in rows" :key="row.id">
+              <td class="px-4 py-3 text-sm text-slate-700">{{ new Date(row.createdAt).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ row.user?.email || row.userId }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ actionLabel(row.action) }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ entityLabel(row.entityType) }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ shortId(row.entityId) }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">
+                <div>{{ summarizeDiff(row.diffJson) }}</div>
+                <details>
+                  <summary class="cursor-pointer text-slate-500">View raw</summary>
+                  <pre class="max-w-[600px] overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-xs">{{ pretty(row.diffJson) }}</pre>
+                </details>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { api } from '../api';
+import Button from '../components/ui/Button.vue';
+import Card from '../components/ui/Card.vue';
+import Input from '../components/ui/Input.vue';
 
 const rows = ref<any[]>([]);
 const filters = ref({ entityType: '', action: '', userId: '', from: '', to: '', limit: 100 });

@@ -1,34 +1,47 @@
 <template>
-  <section>
-    <h2>Meetings & Proxies</h2>
-    <p v-if="!canWrite" style="color:#666;">Read-only mode: meeting/proxy create actions are disabled.</p>
-    <form v-if="canWrite" @submit.prevent="createMeeting" style="display:flex;gap:8px;margin-bottom:12px;">
-      <input v-model="meetingForm.title" placeholder="Meeting title" required />
-      <input v-model="meetingForm.dateTime" type="datetime-local" required />
-      <button>Create meeting</button>
-    </form>
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-slate-900">Meetings & Proxies</h2>
+    <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: meeting/proxy create actions are disabled.</p>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div>
-        <h3>Meetings</h3>
-        <table border="1" cellpadding="6" width="100%"><thead><tr><th>Title</th><th>Date</th><th>Represented</th></tr></thead>
-          <tbody>
-            <tr v-for="m in meetings" :key="m.id" @click="selectMeeting(m.id)" style="cursor:pointer">
-              <td>{{ m.title }}</td><td>{{ new Date(m.dateTime).toLocaleString() }}</td><td>{{ mode[m.id]?.representedShares || 0 }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div>
-        <h3>Proxies (selected meeting)</h3>
-        <form v-if="canWrite" @submit.prevent="createProxy" style="display:grid;gap:6px;">
-          <select v-model="proxyForm.grantorId"><option value="">Grantor</option><option v-for="s in shareholders" :value="s.id" :key="s.id">{{ displayName(s) }}</option></select>
-          <input v-model="proxyForm.proxyHolderName" placeholder="Proxy holder name" />
-          <button :disabled="!selectedMeetingId">Create proxy</button>
+    <Card v-if="canWrite">
+      <form @submit.prevent="createMeeting" class="grid gap-3 sm:grid-cols-3">
+        <Input v-model="meetingForm.title" label="Meeting title" />
+        <Input v-model="meetingForm.dateTime" type="datetime-local" label="Date and time" />
+        <div class="flex items-end"><Button type="submit">Create meeting</Button></div>
+      </form>
+    </Card>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Card class="p-0">
+        <div class="border-b border-slate-200 px-4 py-3"><h3 class="font-semibold text-slate-900">Meetings</h3></div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Title</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Date</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Represented</th></tr></thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+              <tr v-for="m in meetings" :key="m.id" class="cursor-pointer hover:bg-slate-50" @click="selectMeeting(m.id)">
+                <td class="px-4 py-3 text-sm text-slate-900">{{ m.title }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600">{{ new Date(m.dateTime).toLocaleString() }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600">{{ mode[m.id]?.representedShares || 0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <h3 class="font-semibold text-slate-900">Proxies (selected meeting)</h3>
+        <form v-if="canWrite" @submit.prevent="createProxy" class="mt-3 grid gap-3">
+          <Select v-model="proxyForm.grantorId" label="Grantor">
+            <option value="">Grantor</option><option v-for="s in shareholders" :value="s.id" :key="s.id">{{ displayName(s) }}</option>
+          </Select>
+          <Input v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
+          <Button type="submit" :disabled="!selectedMeetingId">Create proxy</Button>
         </form>
-        <p v-else style="color:#666;">Read-only mode: cannot create proxies.</p>
-        <ul><li v-for="p in proxies" :key="p.id">{{ p.proxyHolderName }} - {{ p.status }} - {{ p.proxySharesSnapshot }} shares</li></ul>
-      </div>
+        <p v-else class="mt-2 text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
+        <ul class="mt-3 space-y-2">
+          <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</li>
+        </ul>
+      </Card>
     </div>
   </section>
 </template>
@@ -37,6 +50,10 @@
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
+import Button from '../components/ui/Button.vue';
+import Card from '../components/ui/Card.vue';
+import Input from '../components/ui/Input.vue';
+import Select from '../components/ui/Select.vue';
 
 const meetings = ref<any[]>([]);
 const shareholders = ref<any[]>([]);

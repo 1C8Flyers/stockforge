@@ -1,26 +1,54 @@
 <template>
-  <section>
-    <h2>Lots</h2>
-    <p v-if="!canWrite" style="color:#666;">Read-only mode: create/edit actions are disabled.</p>
-    <form v-if="canWrite" @submit.prevent="save" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <select v-model="form.ownerId">
-        <option disabled value="">Owner</option>
-        <option v-for="s in shareholders" :value="s.id" :key="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
-      </select>
-      <input v-model="form.shares" type="number" min="1" placeholder="Share Quantity" :disabled="!!editingId" />
-      <input v-model="form.certificateNumber" placeholder="Certificate number" :disabled="!!editingId" />
-      <input v-model="form.source" placeholder="Source" />
-      <input v-model="form.notes" placeholder="Notes" />
-      <select v-model="form.status"><option>Active</option><option>Treasury</option><option>Disputed</option><option>Surrendered</option></select>
-      <button>{{ editingId ? 'Save lot' : 'Add lot' }}</button>
-      <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
-    </form>
-    <p v-if="canWrite && editingId" style="margin-top:-4px;color:#666;">Certificate number and share quantity are locked after lot creation.</p>
+  <section class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold text-slate-900">Lots</h2>
+    </div>
 
-    <table border="1" cellpadding="6" width="100%">
-      <thead><tr><th>Owner</th><th>Certificate</th><th>Shares</th><th>Status</th><th>Source</th><th>Notes</th><th>Actions</th></tr></thead>
-      <tbody><tr v-for="l in rows" :key="l.id"><td>{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td>{{ l.certificateNumber || '—' }}</td><td>{{ l.shares }}</td><td>{{ l.status }}</td><td>{{ l.source || '—' }}</td><td>{{ l.notes || '—' }}</td><td><button v-if="canWrite" type="button" @click="editLot(l)">Edit</button></td></tr></tbody>
-    </table>
+    <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: create/edit actions are disabled.</p>
+
+    <Card v-if="canWrite" class="space-y-3">
+      <form @submit.prevent="save" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Select v-model="form.ownerId" label="Owner">
+          <option disabled value="">Owner</option>
+          <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
+        </Select>
+        <Input v-model="form.shares" type="number" min="1" label="Share Quantity" :disabled="!!editingId" />
+        <Input v-model="form.certificateNumber" label="Certificate" :disabled="!!editingId" />
+        <Select v-model="form.status" label="Status">
+          <option>Active</option><option>Treasury</option><option>Disputed</option><option>Surrendered</option>
+        </Select>
+        <Input v-model="form.source" label="Source" />
+        <Input v-model="form.notes" label="Notes" />
+        <div class="flex items-end gap-2 sm:col-span-2 xl:col-span-2">
+          <Button type="submit">{{ editingId ? 'Save lot' : 'Add lot' }}</Button>
+          <Button v-if="editingId" type="button" variant="secondary" @click="clearForm">Cancel edit</Button>
+        </div>
+      </form>
+      <p v-if="editingId" class="text-sm text-slate-500">Certificate number and share quantity are locked after lot creation.</p>
+    </Card>
+
+    <Card>
+      <Input v-model="search" label="Search" placeholder="Owner, certificate, status, source..." />
+    </Card>
+
+    <Card v-if="filteredRows.length" class="p-0">
+      <div class="hidden overflow-x-auto md:block">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Owner</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Certificate</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Shares</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Status</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Source</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Notes</th><th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Actions</th></tr></thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            <tr v-for="l in filteredRows" :key="l.id"><td class="px-4 py-3 text-sm">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td class="px-4 py-3 text-sm">{{ l.certificateNumber || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.shares }}</td><td class="px-4 py-3 text-sm">{{ l.status }}</td><td class="px-4 py-3 text-sm">{{ l.source || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.notes || '—' }}</td><td class="px-4 py-3 text-right"><Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="space-y-3 p-3 md:hidden">
+        <article v-for="l in filteredRows" :key="l.id" class="rounded-xl border border-slate-200 p-3">
+          <h3 class="font-medium text-slate-900">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</h3>
+          <p class="text-sm text-slate-600">Cert: {{ l.certificateNumber || '—' }} · Shares: {{ l.shares }} · {{ l.status }}</p>
+          <p class="text-sm text-slate-500">{{ l.source || '—' }} {{ l.notes ? `· ${l.notes}` : '' }}</p>
+          <Button v-if="canWrite" type="button" variant="ghost" class="mt-2" @click="editLot(l)">Edit</Button>
+        </article>
+      </div>
+    </Card>
   </section>
 </template>
 
@@ -28,13 +56,27 @@
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
+import Button from '../components/ui/Button.vue';
+import Card from '../components/ui/Card.vue';
+import Input from '../components/ui/Input.vue';
+import Select from '../components/ui/Select.vue';
 
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
+const search = ref('');
 const form = ref({ ownerId: '', shares: '', certificateNumber: '', source: '', notes: '', status: 'Active' });
 const editingId = ref<string | null>(null);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return rows.value;
+  return rows.value.filter((l) =>
+    [l.owner?.entityName, `${l.owner?.firstName || ''} ${l.owner?.lastName || ''}`, l.certificateNumber, l.status, l.source, l.notes]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q))
+  );
+});
 
 const load = async () => {
   rows.value = (await api.get('/lots')).data;

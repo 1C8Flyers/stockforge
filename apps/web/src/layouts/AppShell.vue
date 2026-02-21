@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-slate-100">
-    <div class="mx-auto flex min-h-screen max-w-[1400px]">
+  <div class="min-h-screen w-full bg-slate-100">
+    <div class="flex min-h-screen w-full">
       <aside class="hidden w-64 border-r border-slate-200 bg-white p-4 md:block">
         <div class="mb-6 text-lg font-semibold text-slate-900">StockForge</div>
         <SideNav />
@@ -21,10 +21,10 @@
               <h1 class="truncate text-lg font-semibold text-slate-900">{{ pageTitle }}</h1>
             </div>
             <slot name="headerActions" />
-            <div class="hidden text-xs text-slate-500 sm:block">{{ rolesText }}</div>
+            <div class="hidden rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500 sm:block">{{ rolesText }}</div>
             <button
               type="button"
-              class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm"
+              class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50"
               @click="logout"
             >
               Logout
