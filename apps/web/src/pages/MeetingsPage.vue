@@ -41,7 +41,7 @@
             <option value="">External/non-shareholder</option>
             <option v-for="s in shareholders" :value="s.id" :key="`holder-${s.id}`">{{ displayName(s) }}</option>
           </Select>
-          <Input v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
+          <Input v-if="!proxyForm.proxyHolderShareholderId" v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
           <Button type="submit" :disabled="!selectedMeetingId">Create proxy</Button>
         </form>
         <p v-else class="mt-2 text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
@@ -88,7 +88,7 @@
                 type="checkbox"
                 class="h-4 w-4 rounded border-slate-300"
                 :checked="isPresent(s.id)"
-                :disabled="!canWrite || !!proxyForGrantor(s.id)"
+                :disabled="!canWrite"
                 @change="setAttendance(s.id, ($event.target as HTMLInputElement).checked)"
               />
               Present
@@ -245,10 +245,15 @@ const createMeeting = async () => {
 };
 
 const createProxy = async () => {
+  const selectedHolder = shareholders.value.find((s: any) => s.id === proxyForm.value.proxyHolderShareholderId);
+  const proxyHolderName = proxyForm.value.proxyHolderShareholderId
+    ? (selectedHolder ? displayName(selectedHolder) : '')
+    : proxyForm.value.proxyHolderName;
+
   await api.post('/proxies', {
     meetingId: selectedMeetingId.value,
     grantorId: proxyForm.value.grantorId,
-    proxyHolderName: proxyForm.value.proxyHolderName,
+    proxyHolderName,
     proxyHolderShareholderId: proxyForm.value.proxyHolderShareholderId || null,
     receivedDate: new Date().toISOString(),
     status: 'Draft'
