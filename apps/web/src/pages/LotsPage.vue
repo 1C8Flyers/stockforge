@@ -7,7 +7,7 @@
         <option disabled value="">Owner</option>
         <option v-for="s in shareholders" :value="s.id" :key="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
       </select>
-      <input v-model.number="form.shares" type="number" min="1" placeholder="Shares" />
+      <input v-model="form.shares" type="number" min="1" placeholder="Share Quantity" />
       <input v-model="form.certificateNumber" placeholder="Certificate number" />
       <input v-model="form.notes" placeholder="Notes" />
       <select v-model="form.status"><option>Active</option><option>Disputed</option><option>Surrendered</option></select>
@@ -28,7 +28,7 @@ import { useAuthStore } from '../stores/auth';
 
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
-const form = ref({ ownerId: '', shares: 1, certificateNumber: '', notes: '', status: 'Active' });
+const form = ref({ ownerId: '', shares: '', certificateNumber: '', notes: '', status: 'Active' });
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 
@@ -40,10 +40,11 @@ const load = async () => {
 const create = async () => {
   await api.post('/lots', {
     ...form.value,
+    shares: Number(form.value.shares),
     certificateNumber: form.value.certificateNumber || undefined,
     notes: form.value.notes || undefined
   });
-  form.value = { ownerId: '', shares: 1, certificateNumber: '', notes: '', status: 'Active' };
+  form.value = { ownerId: '', shares: '', certificateNumber: '', notes: '', status: 'Active' };
   await load();
 };
 
