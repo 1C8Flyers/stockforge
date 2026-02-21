@@ -1,17 +1,12 @@
 <template>
   <section class="space-y-4">
-    <h2 class="text-xl font-semibold text-slate-900">Meetings & Proxies</h2>
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold text-slate-900">Meetings & Proxies</h2>
+      <Button v-if="canWrite" type="button" @click="meetingFormOpen = true">Create meeting</Button>
+    </div>
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: meeting/proxy create actions are disabled.</p>
 
-    <Card v-if="canWrite">
-      <form @submit.prevent="createMeeting" class="grid gap-3 sm:grid-cols-3">
-        <Input v-model="meetingForm.title" label="Meeting title" />
-        <Input v-model="meetingForm.dateTime" type="datetime-local" label="Date and time" />
-        <div class="flex items-end"><Button type="submit">Create meeting</Button></div>
-      </form>
-    </Card>
-
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid gap-4 lg:grid-cols-[360px,1fr]">
       <Card class="p-0">
         <div class="border-b border-slate-200 px-4 py-3"><h3 class="font-semibold text-slate-900">Meetings</h3></div>
         <div class="overflow-x-auto">
@@ -28,162 +23,242 @@
         </div>
       </Card>
 
-      <Card>
-        <h3 class="font-semibold text-slate-900">Proxies (selected meeting)</h3>
-        <p v-if="selectedMeetingId" class="mt-2 text-xs text-slate-500">
-          Present shares: {{ selectedMode?.presentShares || 0 }} · Proxy shares: {{ selectedMode?.proxyShares || 0 }} · Represented: {{ selectedMode?.representedShares || 0 }}
-        </p>
-        <form v-if="canWrite" @submit.prevent="createProxy" class="mt-3 grid gap-3">
-          <Select v-model="proxyForm.grantorId" label="Grantor">
-            <option value="">Grantor</option><option v-for="s in shareholders" :value="s.id" :key="s.id">{{ displayName(s) }}</option>
-          </Select>
-          <Select v-model="proxyForm.proxyHolderShareholderId" label="Proxy holder shareholder (optional)">
-            <option value="">External/non-shareholder</option>
-            <option v-for="s in shareholders" :value="s.id" :key="`holder-${s.id}`">{{ displayName(s) }}</option>
-          </Select>
-          <Input v-if="!proxyForm.proxyHolderShareholderId" v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
-          <Button type="submit" :disabled="!selectedMeetingId">Create proxy</Button>
-        </form>
-        <p v-else class="mt-2 text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
-        <ul class="mt-3 space-y-2">
-          <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span>{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</span>
-              <div v-if="canWrite" class="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  :disabled="p.status === 'Verified'"
-                  @click="setProxyStatus(p.id, 'Verified')"
-                >
-                  Verify
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  :disabled="p.status === 'Revoked'"
-                  @click="setProxyStatus(p.id, 'Revoked')"
-                >
-                  Revoke
-                </Button>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </Card>
-    </div>
-
-    <div v-if="selectedMeetingId" class="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <h3 class="font-semibold text-slate-900">Attendance</h3>
-        <p class="mt-1 text-xs text-slate-500">Toggle who is present for the selected meeting.</p>
-        <ul class="mt-3 space-y-2">
-          <li v-for="s in shareholders" :key="s.id" class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <span class="text-slate-800">
-              {{ displayName(s) }}
-              <span v-if="proxyForGrantor(s.id)" class="ml-2 text-xs text-amber-700">(proxied to {{ proxyForGrantor(s.id)?.proxyHolderName }})</span>
-            </span>
-            <label class="inline-flex items-center gap-2 text-slate-600">
-              <input
-                type="checkbox"
-                class="h-4 w-4 rounded border-slate-300"
-                :checked="isPresent(s.id)"
-                :disabled="!canWrite"
-                @change="setAttendance(s.id, ($event.target as HTMLInputElement).checked)"
-              />
-              Present
-            </label>
-          </li>
-        </ul>
-      </Card>
-
-      <Card class="space-y-3">
-        <h3 class="font-semibold text-slate-900">Motions & Votes</h3>
-        <form v-if="canWrite" @submit.prevent="createMotion" class="grid gap-3">
-          <Select v-model="motionForm.type" label="Vote type">
-            <option value="STANDARD">Standard motion</option>
-            <option value="ELECTION">Election</option>
-          </Select>
-          <Input v-if="motionForm.type === 'STANDARD'" v-model="motionForm.title" label="Motion title" />
-          <Input v-if="motionForm.type === 'ELECTION'" v-model="motionForm.officeTitle" label="Office" placeholder="Example: Board Seat A" />
-          <label v-if="motionForm.type === 'ELECTION'" class="grid gap-1 text-sm text-slate-700">
-            <span>Candidates (one per line)</span>
-            <textarea
-              v-model="motionForm.candidatesText"
-              class="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-              placeholder="Jane Doe&#10;John Smith"
-            />
-          </label>
-          <label v-if="motionForm.type === 'STANDARD'" class="grid gap-1 text-sm text-slate-700">
-            <span>Motion text</span>
-            <textarea
-              v-model="motionForm.text"
-              class="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-              placeholder="Enter motion details"
-            />
-          </label>
+      <Card v-if="selectedMeetingId" class="space-y-4">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Button type="submit">Add motion</Button>
+            <h3 class="font-semibold text-slate-900">{{ selectedMode?.meeting?.title }}</h3>
+            <p class="text-xs text-slate-500">{{ new Date(selectedMode?.meeting?.dateTime || '').toLocaleString() }}</p>
           </div>
-        </form>
+          <div class="text-xs text-slate-500">
+            Present {{ selectedMode?.presentShares || 0 }} · Proxy {{ selectedMode?.proxyShares || 0 }} · Represented {{ selectedMode?.representedShares || 0 }}
+          </div>
+        </div>
 
-        <ul class="space-y-3">
-          <li v-for="m in selectedMotions" :key="m.id" class="rounded-lg border border-slate-200 p-3">
-            <p class="text-sm font-semibold text-slate-900">{{ m.title }}</p>
-            <p class="mt-1 text-xs text-slate-500">
-              Type: {{ motionType(m) }}
-              <span v-if="motionType(m) === 'ELECTION'"> · Office: {{ m.officeTitle || '—' }}</span>
-              <span> · Status: {{ m.isClosed ? 'Closed' : 'Open' }}</span>
-            </p>
-            <p class="mt-1 text-sm text-slate-600">{{ m.text }}</p>
-            <p v-if="latestVote(m)" class="mt-2 text-xs text-slate-500">
-              Latest vote: Yes {{ latestVote(m)?.yesShares }} · No {{ latestVote(m)?.noShares }} · Abstain {{ latestVote(m)?.abstainShares }} · Result {{ latestVote(m)?.result }}
-            </p>
-            <div v-if="motionType(m) === 'ELECTION' && electionTotals(m).length" class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-              <p class="font-medium">Latest election totals</p>
-              <ul class="mt-1 space-y-1">
-                <li v-for="row in electionTotals(m)" :key="row.candidate">{{ row.candidate }}: {{ row.shares }} shares</li>
-              </ul>
-            </div>
-            <form v-if="canPost && !isVotePanelCollapsed(m)" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
-              <div v-if="presentVoters.length === 0" class="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
-                No present shareholders to vote.
+        <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'overview' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'overview'">Overview</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'attendance' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'attendance'">Attendance</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'proxies' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'proxies'">Proxies</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'motions' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'motions'">Motions & Votes</button>
+        </div>
+
+        <div v-if="activeTab === 'overview'" class="space-y-3">
+          <p class="text-sm text-slate-600">Select a section above to manage attendance, proxies, and motions for this meeting.</p>
+          <div v-if="canWrite" class="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" @click="proxyFormOpen = true">Add proxy</Button>
+            <Button type="button" variant="secondary" @click="motionFormOpen = true">Add motion</Button>
+          </div>
+        </div>
+
+        <div v-if="activeTab === 'attendance'" class="space-y-3">
+          <p class="text-xs text-slate-500">Toggle who is present for the selected meeting.</p>
+          <ul class="space-y-2">
+            <li v-for="s in shareholders" :key="s.id" class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <span class="text-slate-800">
+                {{ displayName(s) }}
+                <span v-if="proxyForGrantor(s.id)" class="ml-2 text-xs text-amber-700">(proxied to {{ proxyForGrantor(s.id)?.proxyHolderName }})</span>
+              </span>
+              <label class="inline-flex items-center gap-2 text-slate-600">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300"
+                  :checked="isPresent(s.id)"
+                  :disabled="!canWrite"
+                  @change="setAttendance(s.id, ($event.target as HTMLInputElement).checked)"
+                />
+                Present
+              </label>
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="activeTab === 'proxies'" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-slate-900">Proxies</h4>
+            <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="proxyFormOpen = true">Add proxy</Button>
+          </div>
+          <p v-if="!canWrite" class="text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
+          <ul class="space-y-2">
+            <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</span>
+                <div v-if="canWrite" class="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    :disabled="p.status === 'Verified'"
+                    @click="setProxyStatus(p.id, 'Verified')"
+                  >
+                    Verify
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    :disabled="p.status === 'Revoked'"
+                    @click="setProxyStatus(p.id, 'Revoked')"
+                  >
+                    Revoke
+                  </Button>
+                </div>
               </div>
-              <div
-                v-for="v in presentVoters"
-                :key="`${m.id}-${v.shareholderId}`"
-                class="grid gap-2 rounded border border-slate-200 p-2 sm:grid-cols-[1fr_180px] sm:items-end"
-              >
-                <div class="text-sm text-slate-800">{{ v.name }} <span class="text-slate-500">({{ v.shares }} shares)</span></div>
-                <Select v-model="voteForm(m.id)[v.shareholderId]" label="Vote">
-                  <option value="">No vote</option>
-                  <option v-if="motionType(m) !== 'ELECTION'" value="yes">Yes</option>
-                  <option v-if="motionType(m) !== 'ELECTION'" value="no">No</option>
-                  <option v-if="motionType(m) !== 'ELECTION'" value="abstain">Abstain</option>
-                  <option v-for="c in motionCandidates(m)" :key="c" :value="`candidate:${c}`">{{ c }}</option>
-                </Select>
+            </li>
+            <li v-if="proxies.length === 0" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No proxies yet.</li>
+          </ul>
+        </div>
+
+        <div v-if="activeTab === 'motions'" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-slate-900">Motions & Votes</h4>
+            <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="motionFormOpen = true">Add motion</Button>
+          </div>
+          <ul class="space-y-3">
+            <li v-for="m in selectedMotions" :key="m.id" class="rounded-lg border border-slate-200 p-3">
+              <p class="text-sm font-semibold text-slate-900">{{ m.title }}</p>
+              <p class="mt-1 text-xs text-slate-500">
+                Type: {{ motionType(m) }}
+                <span v-if="motionType(m) === 'ELECTION'"> · Office: {{ m.officeTitle || '—' }}</span>
+                <span> · Status: {{ m.isClosed ? 'Closed' : 'Open' }}</span>
+              </p>
+              <p class="mt-1 text-sm text-slate-600">{{ m.text }}</p>
+              <p v-if="latestVote(m)" class="mt-2 text-xs text-slate-500">
+                Latest vote: Yes {{ latestVote(m)?.yesShares }} · No {{ latestVote(m)?.noShares }} · Abstain {{ latestVote(m)?.abstainShares }} · Result {{ latestVote(m)?.result }}
+              </p>
+              <div v-if="motionType(m) === 'ELECTION' && electionTotals(m).length" class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+                <p class="font-medium">Latest election totals</p>
+                <ul class="mt-1 space-y-1">
+                  <li v-for="row in electionTotals(m)" :key="row.candidate">{{ row.candidate }}: {{ row.shares }} shares</li>
+                </ul>
               </div>
-              <div class="flex items-end">
-                <Button type="submit" variant="secondary" :disabled="presentVoters.length === 0" :loading="recordingMotionId === m.id">
-                  Record shareholder votes
-                </Button>
+              <form v-if="canPost && !isVotePanelCollapsed(m)" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
+                <div v-if="presentVoters.length === 0" class="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
+                  No present shareholders to vote.
+                </div>
+                <div
+                  v-for="v in presentVoters"
+                  :key="`${m.id}-${v.shareholderId}`"
+                  class="grid gap-2 rounded border border-slate-200 p-2 sm:grid-cols-[1fr_180px] sm:items-end"
+                >
+                  <div class="text-sm text-slate-800">{{ v.name }} <span class="text-slate-500">({{ v.shares }} shares)</span></div>
+                  <Select v-model="voteForm(m.id)[v.shareholderId]" label="Vote">
+                    <option value="">No vote</option>
+                    <option v-if="motionType(m) !== 'ELECTION'" value="yes">Yes</option>
+                    <option v-if="motionType(m) !== 'ELECTION'" value="no">No</option>
+                    <option v-if="motionType(m) !== 'ELECTION'" value="abstain">Abstain</option>
+                    <option v-for="c in motionCandidates(m)" :key="c" :value="`candidate:${c}`">{{ c }}</option>
+                  </Select>
+                </div>
+                <div class="flex items-end">
+                  <Button type="submit" variant="secondary" :disabled="presentVoters.length === 0" :loading="recordingMotionId === m.id">
+                    Record shareholder votes
+                  </Button>
+                </div>
+                <p v-if="recordedMotionId === m.id" class="text-xs text-emerald-700">Votes recorded successfully.</p>
+              </form>
+              <div v-else-if="canPost" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                <p class="font-medium">Votes recorded.</p>
+                <p class="mt-1">{{ collapsedSummaryText(m) }}</p>
+                <div class="mt-2">
+                  <Button size="sm" variant="secondary" :loading="reopeningMotionId === m.id" @click="openVotePanel(m.id)">Reopen voting</Button>
+                </div>
               </div>
-              <p v-if="recordedMotionId === m.id" class="text-xs text-emerald-700">Votes recorded successfully.</p>
-            </form>
-            <div v-else-if="canPost" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
-              <p class="font-medium">Votes recorded.</p>
-              <p class="mt-1">{{ collapsedSummaryText(m) }}</p>
-              <div class="mt-2">
-                <Button size="sm" variant="secondary" :loading="reopeningMotionId === m.id" @click="openVotePanel(m.id)">Reopen voting</Button>
-              </div>
-            </div>
-          </li>
-          <li v-if="selectedMotions.length === 0" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">
-            No motions yet.
-          </li>
-        </ul>
+            </li>
+            <li v-if="selectedMotions.length === 0" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">
+              No motions yet.
+            </li>
+          </ul>
+        </div>
+      </Card>
+
+      <Card v-else>
+        <p class="text-sm text-slate-600">Select a meeting to view attendance, proxies, motions, and voting details.</p>
       </Card>
     </div>
+
+    <Teleport to="body">
+      <div v-if="meetingFormOpen" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-slate-900/50" @click="closeMeetingForm" />
+        <div class="relative z-10 mx-auto mt-10 w-[min(900px,95vw)]">
+          <Card class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-slate-900">Create meeting</h3>
+              <Button type="button" variant="ghost" @click="closeMeetingForm">Close</Button>
+            </div>
+            <form @submit.prevent="createMeeting" class="grid gap-3 sm:grid-cols-3">
+              <Input v-model="meetingForm.title" label="Meeting title" />
+              <Input v-model="meetingForm.dateTime" type="datetime-local" label="Date and time" />
+              <div class="flex items-end"><Button type="submit">Create meeting</Button></div>
+            </form>
+          </Card>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="proxyFormOpen && selectedMeetingId" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-slate-900/50" @click="closeProxyForm" />
+        <div class="relative z-10 mx-auto mt-10 w-[min(900px,95vw)]">
+          <Card class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-slate-900">Create proxy</h3>
+              <Button type="button" variant="ghost" @click="closeProxyForm">Close</Button>
+            </div>
+            <form @submit.prevent="createProxy" class="grid gap-3">
+              <Select v-model="proxyForm.grantorId" label="Grantor">
+                <option value="">Grantor</option><option v-for="s in shareholders" :value="s.id" :key="s.id">{{ displayName(s) }}</option>
+              </Select>
+              <Select v-model="proxyForm.proxyHolderShareholderId" label="Proxy holder shareholder (optional)">
+                <option value="">External/non-shareholder</option>
+                <option v-for="s in shareholders" :value="s.id" :key="`holder-${s.id}`">{{ displayName(s) }}</option>
+              </Select>
+              <Input v-if="!proxyForm.proxyHolderShareholderId" v-model="proxyForm.proxyHolderName" label="Proxy holder name" />
+              <div>
+                <Button type="submit" :disabled="!selectedMeetingId">Create proxy</Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="motionFormOpen && selectedMeetingId" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-slate-900/50" @click="closeMotionForm" />
+        <div class="relative z-10 mx-auto mt-10 w-[min(900px,95vw)]">
+          <Card class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-slate-900">Add motion</h3>
+              <Button type="button" variant="ghost" @click="closeMotionForm">Close</Button>
+            </div>
+            <form @submit.prevent="createMotion" class="grid gap-3">
+              <Select v-model="motionForm.type" label="Vote type">
+                <option value="STANDARD">Standard motion</option>
+                <option value="ELECTION">Election</option>
+              </Select>
+              <Input v-if="motionForm.type === 'STANDARD'" v-model="motionForm.title" label="Motion title" />
+              <Input v-if="motionForm.type === 'ELECTION'" v-model="motionForm.officeTitle" label="Office" placeholder="Example: Board Seat A" />
+              <label v-if="motionForm.type === 'ELECTION'" class="grid gap-1 text-sm text-slate-700">
+                <span>Candidates (one per line)</span>
+                <textarea
+                  v-model="motionForm.candidatesText"
+                  class="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                  placeholder="Jane Doe&#10;John Smith"
+                />
+              </label>
+              <label v-if="motionForm.type === 'STANDARD'" class="grid gap-1 text-sm text-slate-700">
+                <span>Motion text</span>
+                <textarea
+                  v-model="motionForm.text"
+                  class="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                  placeholder="Enter motion details"
+                />
+              </label>
+              <div>
+                <Button type="submit">Add motion</Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -210,6 +285,10 @@ const recordingMotionId = ref('');
 const recordedMotionId = ref('');
 const collapsedVotePanels = ref<Record<string, boolean>>({});
 const reopeningMotionId = ref('');
+const activeTab = ref<'overview' | 'attendance' | 'proxies' | 'motions'>('overview');
+const meetingFormOpen = ref(false);
+const proxyFormOpen = ref(false);
+const motionFormOpen = ref(false);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
@@ -245,6 +324,7 @@ const loadPresentVoters = async () => {
 
 const selectMeeting = async (id: string) => {
   selectedMeetingId.value = id;
+  activeTab.value = 'overview';
   collapsedVotePanels.value = {};
   proxies.value = (await api.get('/proxies', { params: { meetingId: id } })).data;
   await loadPresentVoters();
@@ -257,6 +337,7 @@ const createMeeting = async () => {
   const dt = new Date(meetingForm.value.dateTime).toISOString();
   await api.post('/meetings', { title: meetingForm.value.title, dateTime: dt });
   meetingForm.value = { title: '', dateTime: '' };
+  meetingFormOpen.value = false;
   await load();
 };
 
@@ -275,6 +356,7 @@ const createProxy = async () => {
     status: 'Draft'
   });
   proxyForm.value = { grantorId: '', proxyHolderName: '', proxyHolderShareholderId: '' };
+  proxyFormOpen.value = false;
   await selectMeeting(selectedMeetingId.value);
   await refreshSelectedMode();
 };
@@ -309,7 +391,23 @@ const createMotion = async () => {
     candidates: motionForm.value.type === 'ELECTION' ? candidates : undefined
   });
   motionForm.value = { type: 'STANDARD', title: '', text: '', officeTitle: '', candidatesText: '' };
+  motionFormOpen.value = false;
   await refreshSelectedMode();
+};
+
+const closeMeetingForm = () => {
+  meetingFormOpen.value = false;
+  meetingForm.value = { title: '', dateTime: '' };
+};
+
+const closeProxyForm = () => {
+  proxyFormOpen.value = false;
+  proxyForm.value = { grantorId: '', proxyHolderName: '', proxyHolderShareholderId: '' };
+};
+
+const closeMotionForm = () => {
+  motionFormOpen.value = false;
+  motionForm.value = { type: 'STANDARD', title: '', text: '', officeTitle: '', candidatesText: '' };
 };
 
 const voteForm = (motionId: string) => {
