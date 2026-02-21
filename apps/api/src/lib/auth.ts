@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { RoleName } from '@prisma/client';
+import { prisma } from './db.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -14,10 +15,20 @@ declare module 'fastify' {
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   await request.jwtVerify<{ sub: string; email: string; roles: RoleName[] }>();
   const payload = request.user as { sub: string; email: string; roles: RoleName[] };
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    include: { userRoles: { include: { role: true } } }
+  });
+
+  if (!user) {
+    return reply.unauthorized('Session is no longer valid. Please sign in again.');
+  }
+
   request.userContext = {
-    id: payload.sub,
-    email: payload.email,
-    roles: payload.roles
+    id: user.id,
+    email: user.email,
+    roles: user.userRoles.map((r) => r.role.name)
   };
 }
 

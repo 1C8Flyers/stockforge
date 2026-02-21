@@ -51,8 +51,13 @@
 	- password reset for users
 	- voting config toggle UI (`excludeDisputedFromVoting`)
 	- app branding controls: display name + logo URL
+	- branding save feedback with explicit success/error messaging in Admin page
 	- system health + migration count visibility
 	- audit log page with human-readable summaries
+
+- Auth/session resilience improvements completed:
+	- API now validates that JWT subject still exists in DB (prevents stale-token FK failures after DB resets)
+	- web auto-clears session and redirects to login on API `401` responses
 
 - UI modernization completed across app shell and all major pages:
 	- Tailwind-based reusable components and responsive app shell

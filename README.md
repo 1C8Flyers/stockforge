@@ -92,6 +92,7 @@ Environment/CORS for proxy deployment:
 - Voting: `Treasury` lots are excluded from voting; owner exclusion includes `Inactive`, `DeceasedOutstanding`, and `DeceasedSurrendered`
 - Transfers: explicit Retired Shares from/to option, notes field, and draft `Post / Edit / Cancel` actions
 - Admin/Settings: user + role management, password reset, voting config toggle, app display name/logo controls, and system health/migration summary
+- Auth/Session: stale JWT sessions are rejected after DB resets and web auto-redirects to login on API 401 responses
 - Meetings/Votes: attendance-driven per-shareholder ballot entry with automatic share-weighted vote totals
 - Meetings/Votes: election vote type with office + candidates and candidate-level share tallying
 - Meetings/Votes: election motions report winners/totals (not Passed/Failed)

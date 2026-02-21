@@ -187,6 +187,11 @@ Use the current deployed version with allowed preview host configuration for `en
 Ensure web is using correct API base URL for deployment:
 - NAS should use `http://enterprise.local:13000/api`.
 
+### Session suddenly returns to login / 401 responses
+After database resets or reseeds, older login sessions are invalid.
+- The app now auto-clears stale session tokens and redirects to **Login** on `401`.
+- Sign in again with a current user from the reset database.
+
 ### API unavailable
 Check containers:
 - `docker compose -f docker-compose.nas.yml ps`
@@ -221,7 +226,7 @@ Use **Retired Shares** only when shares should move to/from the null-owner retir
 Admin-only page includes:
 - **System Health**: DB connectivity and migration count
 - **Voting Configuration**: toggle disputed-lot exclusion from voting
-- **Branding**: set app display name and logo URL for sidebar/mobile navigation header branding
+- **Branding**: set app display name and logo URL for sidebar/mobile navigation header branding, with save confirmation/error feedback
 - **Create User**: email, temporary password, role selection
 - **User Management**: update roles and reset user passwords
 
