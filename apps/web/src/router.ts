@@ -34,7 +34,20 @@ export const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/verify/')) return;
+  const pathLower = to.path.toLowerCase();
+  const certSegment = to.path
+    .split('/')
+    .find((segment) => segment.toUpperCase().startsWith('CERT-'));
+
+  if (certSegment) {
+    const canonicalPath = `/verify/certificate/${encodeURIComponent(certSegment)}`;
+    if (to.path !== canonicalPath) {
+      return { path: canonicalPath, query: to.query, hash: to.hash };
+    }
+    return;
+  }
+
+  if (pathLower.startsWith('/verify/')) return;
   const token = localStorage.getItem('token');
   if (to.path === '/login' && token) return '/';
   if (to.path !== '/login' && !token) return '/login';
