@@ -1,10 +1,17 @@
 import { FastifyInstance } from 'fastify';
-import { RoleName, VoteResult } from '@prisma/client';
+import { MotionType, RoleName, VoteResult } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
 import { canPostRoles, canWriteRoles, requireRoles } from '../lib/auth.js';
 import { calculateVotingSnapshot, getShareholderActiveShares } from '../lib/voting.js';
+
+const ballotChoiceSchema = z.enum(['yes', 'no', 'abstain']);
+const motionTypeSchema = z.enum(['STANDARD', 'ELECTION']);
+
+function shareholderName(s: { firstName: string | null; lastName: string | null; entityName: string | null }) {
+  return s.entityName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim();
+}
 
 export async function meetingRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
@@ -66,25 +73,159 @@ export async function meetingRoutes(app: FastifyInstance) {
 
   app.post('/:id/motions', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const body = z.object({ title: z.string().min(1), text: z.string().min(1) }).parse(request.body);
-    const motion = await prisma.motion.create({ data: { meetingId: id, title: body.title, text: body.text } });
+    const body = z
+      .object({
+        title: z.string().min(1),
+        text: z.string().min(1),
+        type: motionTypeSchema.default('STANDARD'),
+        officeTitle: z.string().optional(),
+        candidates: z.array(z.string().min(1)).optional()
+      })
+      .parse(request.body);
+
+    const type = body.type as MotionType;
+    const officeTitle = type === MotionType.ELECTION ? (body.officeTitle || '').trim() : null;
+    const candidates = type === MotionType.ELECTION ? (body.candidates || []).map((c) => c.trim()).filter(Boolean) : [];
+
+    if (type === MotionType.ELECTION) {
+      if (!officeTitle) throw app.httpErrors.badRequest('Election motions require an office title.');
+      if (candidates.length < 2) throw app.httpErrors.badRequest('Election motions require at least two candidates.');
+    }
+
+    const motion = await prisma.motion.create({
+      data: {
+        meetingId: id,
+        title: body.title,
+        text: body.text,
+        type,
+        officeTitle: officeTitle || null,
+        candidatesJson: type === MotionType.ELECTION ? candidates : undefined
+      }
+    });
     await audit(prisma, request.userContext.id, 'CREATE', 'Motion', motion.id, body);
     return motion;
   });
 
+  app.get('/:id/present-voters', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const rows = await prisma.attendance.findMany({
+      where: { meetingId: id, present: true },
+      include: { shareholder: true }
+    });
+
+    const voters = await Promise.all(
+      rows.map(async (row) => ({
+        shareholderId: row.shareholderId,
+        name: shareholderName(row.shareholder),
+        shares: await getShareholderActiveShares(prisma, row.shareholderId)
+      }))
+    );
+
+    return voters.sort((a, b) => b.shares - a.shares || a.name.localeCompare(b.name));
+  });
+
   app.post('/motions/:motionId/votes', { preHandler: requireRoles(...canPostRoles) }, async (request, reply) => {
     const { motionId } = z.object({ motionId: z.string() }).parse(request.params);
-    const body = z.object({ yesShares: z.number().int().nonnegative(), noShares: z.number().int().nonnegative(), abstainShares: z.number().int().nonnegative() }).parse(request.body);
+    const rawBody = request.body;
 
-    const motion = await prisma.motion.findUnique({ where: { id: motionId }, include: { meeting: { include: { snapshot: true } } } });
+    const motion = await prisma.motion.findUnique({
+      where: { id: motionId },
+      include: { meeting: { include: { snapshot: true, attendance: true } } }
+    });
     if (!motion) return reply.notFound();
 
-    const represented = body.yesShares + body.noShares + body.abstainShares;
-    const threshold = motion.meeting.snapshot?.majorityThreshold ?? 1;
-    const result = body.yesShares >= threshold && represented > 0 ? VoteResult.Passed : VoteResult.Failed;
+    let yesShares = 0;
+    let noShares = 0;
+    let abstainShares = 0;
+    let details: unknown = rawBody;
 
-    const vote = await prisma.vote.create({ data: { motionId, ...body, result } });
-    await audit(prisma, request.userContext.id, 'CREATE', 'Vote', vote.id, { ...body, result });
+    if (motion.type === MotionType.ELECTION) {
+      const body = z.object({ ballots: z.array(z.object({ shareholderId: z.string(), candidate: z.string().min(1) })).min(1) }).parse(rawBody);
+      const candidates = Array.isArray(motion.candidatesJson) ? (motion.candidatesJson as string[]) : [];
+      const candidateSet = new Set(candidates);
+
+      const presentIds = new Set(motion.meeting.attendance.filter((a) => a.present).map((a) => a.shareholderId));
+      const seen = new Set<string>();
+      const totals = new Map<string, number>();
+      const resolvedBallots: Array<{ shareholderId: string; candidate: string; shares: number }> = [];
+
+      for (const ballot of body.ballots) {
+        if (!presentIds.has(ballot.shareholderId)) {
+          return reply.code(400).send({ error: 'Ballot includes shareholder not marked present for this meeting.' });
+        }
+        if (!candidateSet.has(ballot.candidate)) {
+          return reply.code(400).send({ error: `Invalid candidate: ${ballot.candidate}` });
+        }
+        if (seen.has(ballot.shareholderId)) {
+          return reply.code(400).send({ error: 'Duplicate ballot for the same shareholder is not allowed.' });
+        }
+        seen.add(ballot.shareholderId);
+
+        const shares = await getShareholderActiveShares(prisma, ballot.shareholderId);
+        totals.set(ballot.candidate, (totals.get(ballot.candidate) || 0) + shares);
+        resolvedBallots.push({ shareholderId: ballot.shareholderId, candidate: ballot.candidate, shares });
+      }
+
+      const totalsArray = candidates.map((candidate) => ({ candidate, shares: totals.get(candidate) || 0 }));
+      const topShares = Math.max(...totalsArray.map((t) => t.shares), 0);
+      const winners = totalsArray.filter((t) => t.shares === topShares && t.shares > 0).map((t) => t.candidate);
+
+      details = {
+        type: 'ELECTION',
+        officeTitle: motion.officeTitle,
+        totals: totalsArray,
+        winners,
+        ballots: resolvedBallots
+      };
+
+      yesShares = topShares;
+      noShares = 0;
+      abstainShares = 0;
+    } else {
+      const body = z
+        .union([
+          z.object({ yesShares: z.number().int().nonnegative(), noShares: z.number().int().nonnegative(), abstainShares: z.number().int().nonnegative() }),
+          z.object({ ballots: z.array(z.object({ shareholderId: z.string(), choice: ballotChoiceSchema })).min(1) })
+        ])
+        .parse(rawBody);
+
+      if ('ballots' in body) {
+        const presentIds = new Set(motion.meeting.attendance.filter((a) => a.present).map((a) => a.shareholderId));
+        const seen = new Set<string>();
+        const resolvedBallots: Array<{ shareholderId: string; choice: 'yes' | 'no' | 'abstain'; shares: number }> = [];
+
+        for (const ballot of body.ballots) {
+          if (!presentIds.has(ballot.shareholderId)) {
+            return reply.code(400).send({ error: 'Ballot includes shareholder not marked present for this meeting.' });
+          }
+          if (seen.has(ballot.shareholderId)) {
+            return reply.code(400).send({ error: 'Duplicate ballot for the same shareholder is not allowed.' });
+          }
+          seen.add(ballot.shareholderId);
+
+          const shares = await getShareholderActiveShares(prisma, ballot.shareholderId);
+          resolvedBallots.push({ shareholderId: ballot.shareholderId, choice: ballot.choice, shares });
+          if (ballot.choice === 'yes') yesShares += shares;
+          else if (ballot.choice === 'no') noShares += shares;
+          else abstainShares += shares;
+        }
+
+        details = { type: 'STANDARD', ballots: resolvedBallots };
+      } else {
+        yesShares = body.yesShares;
+        noShares = body.noShares;
+        abstainShares = body.abstainShares;
+      }
+    }
+
+    const represented = yesShares + noShares + abstainShares;
+    const threshold = motion.meeting.snapshot?.majorityThreshold ?? 1;
+    const result = motion.type === MotionType.ELECTION
+      ? (represented > 0 ? VoteResult.Passed : VoteResult.Failed)
+      : (yesShares >= threshold && represented > 0 ? VoteResult.Passed : VoteResult.Failed);
+
+    const vote = await prisma.vote.create({ data: { motionId, yesShares, noShares, abstainShares, result, detailsJson: details as any } });
+    await audit(prisma, request.userContext.id, 'CREATE', 'Vote', vote.id, { yesShares, noShares, abstainShares, result, details });
     return vote;
   });
 

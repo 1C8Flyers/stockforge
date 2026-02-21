@@ -54,6 +54,11 @@ enum VoteResult {
   Failed
 }
 
+enum MotionType {
+  STANDARD
+  ELECTION
+}
+
 model User {
   id           String      @id @default(cuid())
   email        String      @unique
@@ -216,6 +221,9 @@ model Motion {
   meetingId String
   title     String
   text      String
+  type      MotionType @default(STANDARD)
+  officeTitle String?
+  candidatesJson Json?
   voteRule  VoteRule  @default(SIMPLE_MAJORITY)
   createdAt DateTime  @default(now())
   meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
@@ -228,6 +236,7 @@ model Vote {
   yesShares     Int
   noShares      Int
   abstainShares Int
+  detailsJson   Json?
   result        VoteResult
   createdAt     DateTime   @default(now())
   motion        Motion     @relation(fields: [motionId], references: [id], onDelete: Cascade)
