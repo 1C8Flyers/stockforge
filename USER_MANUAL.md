@@ -125,8 +125,8 @@ Draft transfers support:
 4. In the meeting detail area, use tabs:
 	- **Overview** for summary and quick actions
 	- **Attendance** to mark present shareholders
-	- **Proxies** to add/verify/revoke proxies
-	- **Motions & Votes** to add motions and record/reopen votes
+	- **Proxies** to add/verify/revoke proxies (tab badge appears only when draft proxies are pending)
+	- **Motions & Votes** to add motions and record/reopen votes (tab badge appears only when open motions are pending)
 5. Record motions and votes.
 
 Vote entry supports two patterns:

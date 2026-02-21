@@ -99,6 +99,7 @@ Environment/CORS for proxy deployment:
 - Meetings/Votes: motions auto-close after votes are recorded; additional votes are blocked until explicitly reopened
 - Navigation: Transfers and Meetings menu items now show pending badges (draft transfers; open motions + draft proxies)
 - Meetings page: left-side meeting list includes per-meeting pending badge (open motions + draft proxies)
+- Meetings page: Proxies and Motions & Votes tabs show pending badges only when draft proxies/open motions exist
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

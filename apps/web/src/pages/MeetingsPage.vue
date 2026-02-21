@@ -74,8 +74,24 @@
         <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
           <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'overview' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'overview'">Overview</button>
           <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'attendance' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'attendance'">Attendance ({{ presentCount }}/{{ shareholders.length }})</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'proxies' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'proxies'">Proxies ({{ proxies.length }})</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'motions' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'motions'">Motions & Votes ({{ selectedMotions.length }})</button>
+          <button type="button" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'proxies' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'proxies'">
+            <span>Proxies ({{ proxies.length }})</span>
+            <span
+              v-if="pendingProxiesCount > 0"
+              class="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700"
+            >
+              {{ pendingProxiesCount }}
+            </span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'motions' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'motions'">
+            <span>Motions & Votes ({{ selectedMotions.length }})</span>
+            <span
+              v-if="openMotionsCount > 0"
+              class="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700"
+            >
+              {{ openMotionsCount }}
+            </span>
+          </button>
         </div>
 
         <div v-if="activeTab === 'overview'" class="space-y-3">
@@ -361,6 +377,7 @@ const presentCount = computed(() => {
 });
 const closedMotionsCount = computed(() => selectedMotions.value.filter((m: any) => m.isClosed).length);
 const openMotionsCount = computed(() => selectedMotions.value.length - closedMotionsCount.value);
+const pendingProxiesCount = computed(() => proxies.value.filter((p: any) => p.status === 'Draft').length);
 const presentShareholderIds = computed(() => {
   const rows = selectedMode.value?.meeting?.attendance || [];
   return new Set(rows.filter((a: any) => a.present).map((a: any) => a.shareholderId));
