@@ -101,7 +101,8 @@ If certificate number is blank, the system auto-generates one starting at `1000`
 In lot edit mode, allowed updates are metadata fields (for example owner, status, source, notes). Certificate number and shares remain immutable.
 
 Printing certificates:
-- Admin/Officer users can use **Print** on lot rows/cards to generate a stock certificate PDF.
+- Admin/Officer users can use **Original** or **Reprint** on lot rows/cards to generate stock certificate PDFs.
+- Certificate PDFs include a visible `ORIGINAL` or `REPRINT` label based on the selected action.
 - Only lots with status `Active` are printable; non-active lots return a clear message.
 
 ### Step C — Draft transfer

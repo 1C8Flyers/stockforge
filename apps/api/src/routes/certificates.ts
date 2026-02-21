@@ -25,6 +25,7 @@ function buildCertificatePdf(input: {
   shares: number;
   issuedDate: Date;
   lotId: string;
+  printLabel: 'ORIGINAL' | 'REPRINT';
 }): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 54 });
@@ -37,6 +38,11 @@ function buildCertificatePdf(input: {
     doc.moveDown(0.5);
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#111827').text('Stock Certificate', { align: 'center' });
     doc.moveDown(1.1);
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(input.printLabel === 'REPRINT' ? '#b45309' : '#166534').text(input.printLabel, {
+      align: 'right'
+    });
+    doc.moveDown(0.2);
 
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Certificate No: ${input.certificateNumber}`);
     doc.text(`Issued: ${formatDate(input.issuedDate)}`);
@@ -84,6 +90,9 @@ function buildCertificatePdf(input: {
 export async function certificateRoutes(app: FastifyInstance) {
   app.get('/lots/:lotId.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
     const { lotId } = z.object({ lotId: z.string() }).parse(request.params);
+    const { mode } = z
+      .object({ mode: z.enum(['original', 'reprint']).optional().default('original') })
+      .parse(request.query);
 
     const lot = await prisma.shareLot.findUnique({
       where: { id: lotId },
@@ -103,19 +112,22 @@ export async function certificateRoutes(app: FastifyInstance) {
     const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
+    const printLabel = mode === 'reprint' ? 'REPRINT' : 'ORIGINAL';
     const pdf = await buildCertificatePdf({
       appName,
       certificateNumber,
       ownerDisplayName: ownerName(lot.owner),
       shares: lot.shares,
       issuedDate,
-      lotId: lot.id
+      lotId: lot.id,
+      printLabel
     });
 
     await audit(prisma, request.userContext.id, 'PRINT', 'ShareLot', lot.id, {
       certificateNumber,
       status: lot.status,
-      shares: lot.shares
+      shares: lot.shares,
+      mode
     });
 
     reply.header('Content-Type', 'application/pdf');
