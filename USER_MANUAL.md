@@ -100,6 +100,10 @@ If certificate number is blank, the system auto-generates one starting at `1000`
 
 In lot edit mode, allowed updates are metadata fields (for example owner, status, source, notes). Certificate number and shares remain immutable.
 
+Printing certificates:
+- Admin/Officer users can use **Print** on lot rows/cards to generate a stock certificate PDF.
+- Only lots with status `Active` are printable; non-active lots return a clear message.
+
 ### Step C — Draft transfer
 1. Open **Transfers**.
 2. Click **Create transfer** to open the transfer popup card.

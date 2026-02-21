@@ -7,6 +7,8 @@
 
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: create/edit actions are disabled.</p>
 
+    <p v-if="printError" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ printError }}</p>
+
     <Teleport to="body">
       <div v-if="canWrite && formOpen" class="fixed inset-0 z-50">
         <div class="absolute inset-0 bg-slate-900/50" @click="closeForm" />
@@ -48,7 +50,7 @@
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Owner</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Certificate</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Shares</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Status</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Source</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Notes</th><th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Actions</th></tr></thead>
           <tbody class="divide-y divide-slate-200 bg-white">
-            <tr v-for="l in filteredRows" :key="l.id"><td class="px-4 py-3 text-sm">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td class="px-4 py-3 text-sm">{{ l.certificateNumber || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.shares }}</td><td class="px-4 py-3 text-sm">{{ l.status }}</td><td class="px-4 py-3 text-sm">{{ l.source || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.notes || '—' }}</td><td class="px-4 py-3 text-right"><Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button></td></tr>
+            <tr v-for="l in filteredRows" :key="l.id"><td class="px-4 py-3 text-sm">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td class="px-4 py-3 text-sm">{{ l.certificateNumber || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.shares }}</td><td class="px-4 py-3 text-sm">{{ l.status }}</td><td class="px-4 py-3 text-sm">{{ l.source || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.notes || '—' }}</td><td class="px-4 py-3 text-right"><div class="inline-flex gap-1"><Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l)">Print</Button><Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -57,7 +59,10 @@
           <h3 class="font-medium text-slate-900">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</h3>
           <p class="text-sm text-slate-600">Cert: {{ l.certificateNumber || '—' }} · Shares: {{ l.shares }} · {{ l.status }}</p>
           <p class="text-sm text-slate-500">{{ l.source || '—' }} {{ l.notes ? `· ${l.notes}` : '' }}</p>
-          <Button v-if="canWrite" type="button" variant="ghost" class="mt-2" @click="editLot(l)">Edit</Button>
+          <div class="mt-2 inline-flex gap-2">
+            <Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l)">Print</Button>
+            <Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button>
+          </div>
         </article>
       </div>
     </Card>
@@ -79,8 +84,11 @@ const search = ref('');
 const form = ref({ ownerId: '', shares: '', certificateNumber: '', source: '', notes: '', status: 'Active' });
 const editingId = ref<string | null>(null);
 const formOpen = ref(false);
+const printError = ref('');
+const printingLotId = ref('');
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
+const canPrint = computed(() => auth.canPost);
 const filteredRows = computed(() => {
   const q = search.value.trim().toLowerCase();
   if (!q) return rows.value;
@@ -108,7 +116,38 @@ const closeForm = () => {
 
 const openCreateForm = () => {
   clearForm();
+  printError.value = '';
   formOpen.value = true;
+};
+
+const extractPrintError = async (error: any) => {
+  const data = error?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const json = JSON.parse(text) as { message?: string; error?: string };
+      return json.message || json.error || 'Unable to print certificate.';
+    } catch {
+      return 'Unable to print certificate.';
+    }
+  }
+  return data?.message || data?.error || 'Unable to print certificate.';
+};
+
+const printCertificate = async (lot: any) => {
+  printError.value = '';
+  printingLotId.value = lot.id;
+  try {
+    const response = await api.get(`/certificates/lots/${lot.id}.pdf`, { responseType: 'blob' });
+    const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank', 'noopener');
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error: any) {
+    printError.value = await extractPrintError(error);
+  } finally {
+    printingLotId.value = '';
+  }
 };
 
 const save = async () => {

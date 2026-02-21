@@ -82,3 +82,7 @@
 	- Meetings nav badge shows count of open motions + draft proxies
 	- Meetings page left list shows per-meeting pending count (open motions + draft proxies)
 	- Meeting detail tabs now show pending badges only when applicable (`Proxies` for Draft items, `Motions & Votes` for open motions)
+- Stock certificate printing MVP completed:
+	- new API endpoint to render certificate PDF for lot records
+	- Lots page print action for Admin/Officer users
+	- printing restricted to `Active` lots with clear user-facing errors for non-printable statuses
