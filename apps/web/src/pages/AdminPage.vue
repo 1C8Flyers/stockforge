@@ -23,6 +23,19 @@
     </div>
 
     <Card>
+      <h3 class="font-semibold text-slate-900">Branding</h3>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <Input v-model="appDisplayName" label="App name" placeholder="StockForge" />
+        <Input v-model="appLogoUrl" label="Logo URL" placeholder="https://..." />
+      </div>
+      <div class="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <img v-if="appLogoUrl" :src="appLogoUrl" alt="Logo preview" class="h-10 w-10 rounded object-cover" />
+        <div class="text-sm text-slate-700">Preview: <b>{{ appDisplayName || 'StockForge' }}</b></div>
+      </div>
+      <Button class="mt-3" @click="saveConfig">Save branding</Button>
+    </Card>
+
+    <Card>
       <h3 class="font-semibold text-slate-900">Create User</h3>
       <form @submit.prevent="createUser" class="mt-3 grid gap-3 lg:grid-cols-6">
         <Input v-model="newUser.email" type="email" label="Email" />
@@ -87,6 +100,8 @@ if (!auth.isAdmin) {
 
 const health = ref<any>(null);
 const excludeDisputed = ref(false);
+const appDisplayName = ref('StockForge');
+const appLogoUrl = ref('');
 const users = ref<any[]>([]);
 const passwords = ref<Record<string, string>>({});
 
@@ -100,10 +115,24 @@ const loadHealth = async () => {
 const loadConfig = async () => {
   const cfg = (await api.get('/config')).data;
   excludeDisputed.value = cfg.excludeDisputedFromVoting === 'true';
+  appDisplayName.value = cfg.appDisplayName || 'StockForge';
+  appLogoUrl.value = cfg.appLogoUrl || '';
 };
 
 const saveConfig = async () => {
-  await api.put('/config', { excludeDisputedFromVoting: excludeDisputed.value });
+  await api.put('/config', {
+    excludeDisputedFromVoting: excludeDisputed.value,
+    appDisplayName: appDisplayName.value || 'StockForge',
+    appLogoUrl: appLogoUrl.value || ''
+  });
+  window.dispatchEvent(
+    new CustomEvent('app-branding-updated', {
+      detail: {
+        appDisplayName: appDisplayName.value || 'StockForge',
+        appLogoUrl: appLogoUrl.value || ''
+      }
+    })
+  );
 };
 
 const loadUsers = async () => {

@@ -2,7 +2,10 @@
   <div class="min-h-screen w-full bg-slate-100">
     <div class="flex min-h-screen w-full">
       <aside class="hidden w-64 border-r border-slate-200 bg-white p-4 md:block">
-        <div class="mb-6 text-lg font-semibold text-slate-900">StockForge</div>
+        <div class="mb-6 flex items-center gap-2">
+          <img v-if="appLogoUrl" :src="appLogoUrl" alt="App logo" class="h-9 w-9 rounded object-cover" />
+          <div class="text-lg font-semibold text-slate-900">{{ appDisplayName }}</div>
+        </div>
         <SideNav />
       </aside>
 
@@ -38,21 +41,24 @@
       </div>
     </div>
 
-    <MobileNavDrawer :open="mobileNavOpen" @close="mobileNavOpen = false" />
+    <MobileNavDrawer :open="mobileNavOpen" :app-name="appDisplayName" :logo-url="appLogoUrl" @close="mobileNavOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import SideNav from '../components/nav/SideNav.vue';
 import MobileNavDrawer from '../components/nav/MobileNavDrawer.vue';
+import { api } from '../api';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const mobileNavOpen = ref(false);
+const appDisplayName = ref('StockForge');
+const appLogoUrl = ref('');
 
 const routeTitleMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -68,7 +74,7 @@ const routeTitleMap: Record<string, string> = {
 const pageTitle = computed(() => {
   const metaTitle = route.meta?.title;
   if (typeof metaTitle === 'string') return metaTitle;
-  return routeTitleMap[route.path] || 'StockForge';
+  return routeTitleMap[route.path] || appDisplayName.value;
 });
 
 const rolesText = computed(() => (auth.roles.length ? auth.roles.join(', ') : 'No role'));
@@ -77,4 +83,32 @@ const logout = () => {
   auth.clear();
   router.push('/login');
 };
+
+const loadBranding = async () => {
+  try {
+    const cfg = (await api.get('/config')).data as Record<string, string>;
+    appDisplayName.value = cfg.appDisplayName || 'StockForge';
+    appLogoUrl.value = cfg.appLogoUrl || '';
+  } catch {
+    appDisplayName.value = 'StockForge';
+    appLogoUrl.value = '';
+  }
+};
+
+const onBrandingUpdated = (event: Event) => {
+  const customEvent = event as CustomEvent<{ appDisplayName?: string; appLogoUrl?: string }>;
+  if (customEvent.detail?.appDisplayName) {
+    appDisplayName.value = customEvent.detail.appDisplayName;
+  }
+  appLogoUrl.value = customEvent.detail?.appLogoUrl || '';
+};
+
+onMounted(() => {
+  loadBranding();
+  window.addEventListener('app-branding-updated', onBrandingUpdated as EventListener);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('app-branding-updated', onBrandingUpdated as EventListener);
+});
 </script>

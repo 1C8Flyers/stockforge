@@ -55,7 +55,7 @@ Roles enforced server-side:
 
 ## Implemented API areas
 - Auth: login, me
-- Config: get/update (Admin-only update)
+- Config: get/update (Admin-only update) for voting + app branding (`appDisplayName`, `appLogoUrl`)
 - Shareholders: CRUD
 - Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates), including `Treasury` status
 - Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, human-readable owner/lot data, and special `Retired Shares` null-owner option
@@ -91,7 +91,7 @@ Environment/CORS for proxy deployment:
 - Lots: edit workflow exposed in UI; `certificateNumber` and `shares` lock after creation
 - Voting: `Treasury` lots are excluded from voting; owner exclusion includes `Inactive`, `DeceasedOutstanding`, and `DeceasedSurrendered`
 - Transfers: explicit Retired Shares from/to option, notes field, and draft `Post / Edit / Cancel` actions
-- Admin/Settings: user + role management, password reset, voting config toggle, and system health/migration summary
+- Admin/Settings: user + role management, password reset, voting config toggle, app display name/logo controls, and system health/migration summary
 
 ## Troubleshooting
 ### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`
@@ -122,6 +122,7 @@ Tailwind setup files:
 Layout shell usage:
 - [apps/web/src/layouts/AppShell.vue](apps/web/src/layouts/AppShell.vue) provides desktop sidebar, mobile drawer nav, sticky header, and logout.
 - [apps/web/src/App.vue](apps/web/src/App.vue) applies `AppShell` to all routes except `/login`.
+- Shell now spans full browser width and supports configurable app name/logo from Admin settings.
 
 Reusable UI primitives:
 - Components live in [apps/web/src/components/ui](apps/web/src/components/ui)
@@ -135,3 +136,12 @@ CRUD page pattern:
 - Applied in:
    - [apps/web/src/pages/ShareholdersPage.vue](apps/web/src/pages/ShareholdersPage.vue)
    - [apps/web/src/pages/TransfersPage.vue](apps/web/src/pages/TransfersPage.vue)
+
+Refined pages with consistent card/table/form styling:
+- [apps/web/src/pages/DashboardPage.vue](apps/web/src/pages/DashboardPage.vue)
+- [apps/web/src/pages/LotsPage.vue](apps/web/src/pages/LotsPage.vue)
+- [apps/web/src/pages/MeetingsPage.vue](apps/web/src/pages/MeetingsPage.vue)
+- [apps/web/src/pages/ReportsPage.vue](apps/web/src/pages/ReportsPage.vue)
+- [apps/web/src/pages/AuditLogPage.vue](apps/web/src/pages/AuditLogPage.vue)
+- [apps/web/src/pages/AdminPage.vue](apps/web/src/pages/AdminPage.vue)
+- [apps/web/src/pages/LoginPage.vue](apps/web/src/pages/LoginPage.vue)

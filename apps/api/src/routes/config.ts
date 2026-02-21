@@ -12,13 +12,58 @@ export async function configRoutes(app: FastifyInstance) {
   });
 
   app.put('/', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
-    const body = z.object({ excludeDisputedFromVoting: z.boolean() }).parse(request.body);
-    const row = await prisma.appConfig.upsert({
-      where: { key: 'excludeDisputedFromVoting' },
-      update: { value: body.excludeDisputedFromVoting ? 'true' : 'false', updatedById: request.userContext.id },
-      create: { key: 'excludeDisputedFromVoting', value: body.excludeDisputedFromVoting ? 'true' : 'false', updatedById: request.userContext.id }
-    });
-    await audit(prisma, request.userContext.id, 'UPDATE', 'AppConfig', row.id, body);
-    return row;
+    const body = z
+      .object({
+        excludeDisputedFromVoting: z.boolean().optional(),
+        appDisplayName: z.string().trim().min(1).max(80).optional(),
+        appLogoUrl: z.string().trim().max(500).optional()
+      })
+      .parse(request.body);
+
+    if (
+      typeof body.excludeDisputedFromVoting === 'undefined' &&
+      typeof body.appDisplayName === 'undefined' &&
+      typeof body.appLogoUrl === 'undefined'
+    ) {
+      return request.server.httpErrors.badRequest('No config fields provided');
+    }
+
+    const updates: string[] = [];
+
+    if (typeof body.excludeDisputedFromVoting === 'boolean') {
+      await prisma.appConfig.upsert({
+        where: { key: 'excludeDisputedFromVoting' },
+        update: { value: body.excludeDisputedFromVoting ? 'true' : 'false', updatedById: request.userContext.id },
+        create: {
+          key: 'excludeDisputedFromVoting',
+          value: body.excludeDisputedFromVoting ? 'true' : 'false',
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('excludeDisputedFromVoting');
+    }
+
+    if (typeof body.appDisplayName === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'appDisplayName' },
+        update: { value: body.appDisplayName, updatedById: request.userContext.id },
+        create: { key: 'appDisplayName', value: body.appDisplayName, updatedById: request.userContext.id }
+      });
+      updates.push('appDisplayName');
+    }
+
+    if (typeof body.appLogoUrl === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'appLogoUrl' },
+        update: { value: body.appLogoUrl, updatedById: request.userContext.id },
+        create: { key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
+      });
+      updates.push('appLogoUrl');
+    }
+
+    const rows = await prisma.appConfig.findMany();
+    const result = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    await audit(prisma, request.userContext.id, 'UPDATE', 'AppConfig', 'global', { updatedKeys: updates, values: body });
+    return result;
   });
 }

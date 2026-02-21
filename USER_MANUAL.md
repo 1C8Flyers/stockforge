@@ -210,5 +210,8 @@ Use **Retired Shares** only when shares should move to/from the null-owner retir
 Admin-only page includes:
 - **System Health**: DB connectivity and migration count
 - **Voting Configuration**: toggle disputed-lot exclusion from voting
+- **Branding**: set app display name and logo URL for sidebar/mobile navigation header branding
 - **Create User**: email, temporary password, role selection
 - **User Management**: update roles and reset user passwords
+
+Branding updates apply to the app shell after saving settings.

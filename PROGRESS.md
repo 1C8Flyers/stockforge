@@ -50,5 +50,12 @@
 	- role assignment updates
 	- password reset for users
 	- voting config toggle UI (`excludeDisputedFromVoting`)
+	- app branding controls: display name + logo URL
 	- system health + migration count visibility
 	- audit log page with human-readable summaries
+
+- UI modernization completed across app shell and all major pages:
+	- Tailwind-based reusable components and responsive app shell
+	- full-width layout behavior (no centered app-width cap)
+	- Shareholders + Transfers converted to responsive table/card + drawer CRUD pattern
+	- Dashboard/Lots/Meetings/Reports/Audit/Admin/Login refined to consistent modern styling
