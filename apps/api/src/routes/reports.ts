@@ -18,37 +18,40 @@ type PdfColumn = {
   align?: 'left' | 'right';
 };
 
-function fitCellText(doc: PDFKit.PDFDocument, value: unknown, width: number) {
-  let text = String(value ?? '');
-  if (!text) return '';
-  if (doc.widthOfString(text) <= width) return text;
-
-  const ellipsis = '…';
-  while (text.length > 1 && doc.widthOfString(`${text}${ellipsis}`) > width) {
-    text = text.slice(0, -1);
-  }
-
-  return `${text}${ellipsis}`;
-}
-
 function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], rows: Record<string, unknown>[]): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'LETTER', margin: 40 });
     const chunks: Buffer[] = [];
     const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
-    const rowHeight = 22;
+    const minRowHeight = 22;
+    const cellPaddingX = 6;
+    const cellPaddingY = 6;
     const pageBottom = () => doc.page.height - doc.page.margins.bottom;
+
+    const getRowHeight = (row: Record<string, unknown>) => {
+      let maxHeight = 0;
+      for (const col of columns) {
+        doc.font('Helvetica').fontSize(9);
+        const text = String(row[col.key] ?? '');
+        const cellHeight = doc.heightOfString(text, {
+          width: col.width - cellPaddingX * 2,
+          align: col.align === 'right' ? 'right' : 'left'
+        });
+        maxHeight = Math.max(maxHeight, cellHeight);
+      }
+      return Math.max(minRowHeight, maxHeight + cellPaddingY * 2);
+    };
 
     const drawHeaderRow = (y: number) => {
       let x = doc.page.margins.left;
       doc.save();
-      doc.rect(x, y, tableWidth, rowHeight).fill('#f1f5f9');
+      doc.rect(x, y, tableWidth, minRowHeight).fill('#f1f5f9');
       doc.restore();
-      doc.strokeColor('#cbd5e1').lineWidth(0.7).rect(x, y, tableWidth, rowHeight).stroke();
+      doc.strokeColor('#cbd5e1').lineWidth(0.7).rect(x, y, tableWidth, minRowHeight).stroke();
 
       for (const col of columns) {
-        doc.font('Helvetica-Bold').fillColor('#0f172a').fontSize(9).text(col.label, x + 6, y + 7, {
-          width: col.width - 12,
+        doc.font('Helvetica-Bold').fillColor('#0f172a').fontSize(9).text(col.label, x + cellPaddingX, y + 7, {
+          width: col.width - cellPaddingX * 2,
           align: col.align === 'right' ? 'right' : 'left',
           lineBreak: false,
           ellipsis: true
@@ -57,7 +60,7 @@ function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], 
       }
     };
 
-    const drawDataRow = (row: Record<string, unknown>, y: number, shade: boolean) => {
+    const drawDataRow = (row: Record<string, unknown>, y: number, rowHeight: number, shade: boolean) => {
       let x = doc.page.margins.left;
       if (shade) {
         doc.save();
@@ -67,17 +70,10 @@ function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], 
       doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(x, y, tableWidth, rowHeight).stroke();
 
       for (const col of columns) {
-        doc.font('Helvetica').fillColor('#111827').fontSize(9);
-        const maxTextWidth = col.width - 12;
-        const text = fitCellText(doc, row[col.key], maxTextWidth);
-
-        if (col.align === 'right') {
-          const textWidth = doc.widthOfString(text);
-          const tx = x + col.width - 6 - textWidth;
-          doc.text(text, tx, y + 7, { lineBreak: false });
-        } else {
-          doc.text(text, x + 6, y + 7, { lineBreak: false });
-        }
+        doc.font('Helvetica').fillColor('#111827').fontSize(9).text(String(row[col.key] ?? ''), x + cellPaddingX, y + cellPaddingY, {
+          width: col.width - cellPaddingX * 2,
+          align: col.align === 'right' ? 'right' : 'left'
+        });
         x += col.width;
       }
     };
@@ -92,16 +88,17 @@ function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], 
 
     let y = doc.y;
     drawHeaderRow(y);
-    y += rowHeight;
+    y += minRowHeight;
 
     rows.forEach((row, index) => {
+      const rowHeight = getRowHeight(row);
       if (y + rowHeight > pageBottom()) {
         doc.addPage();
         y = doc.page.margins.top;
         drawHeaderRow(y);
-        y += rowHeight;
+        y += minRowHeight;
       }
-      drawDataRow(row, y, index % 2 === 1);
+      drawDataRow(row, y, rowHeight, index % 2 === 1);
       y += rowHeight;
     });
 
@@ -174,12 +171,12 @@ export async function reportRoutes(app: FastifyInstance) {
       'Ownership Report (Cap Table)',
       `Generated ${new Date().toLocaleString()}`,
       [
-        { key: 'name', label: 'Name', width: 150 },
-        { key: 'status', label: 'Status', width: 85 },
-        { key: 'activeShares', label: 'Active', width: 52, align: 'right' },
-        { key: 'excludedShares', label: 'Excluded', width: 62, align: 'right' },
-        { key: 'email', label: 'Email', width: 120 },
-        { key: 'phone', label: 'Phone', width: 63 }
+        { key: 'name', label: 'Name', width: 168 },
+        { key: 'status', label: 'Status', width: 68 },
+        { key: 'activeShares', label: 'Active', width: 48, align: 'right' },
+        { key: 'excludedShares', label: 'Excluded', width: 58, align: 'right' },
+        { key: 'email', label: 'Email', width: 132 },
+        { key: 'phone', label: 'Phone', width: 58 }
       ],
       data.map((r) => ({ ...r, email: r.email || '—', phone: r.phone || '—' }))
     );
