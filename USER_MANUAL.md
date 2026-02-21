@@ -87,17 +87,26 @@ When a meeting is created, voting totals and majority threshold are snapshotted 
 ### Step A — Create shareholders
 1. Open **Shareholders**.
 2. Add person or entity details.
-3. Set status and contact data.
+3. Capture contact data: phone, street, city, state, zip.
+4. Use the **Edit** button in the table to update existing shareholders.
 
 ### Step B — Create lots
 1. Open **Lots**.
-2. Select owner, enter shares and lot status.
+2. Select owner, enter shares, certificate number (optional), and lot status.
 3. Save lot.
+
+If certificate number is blank, the system auto-generates one starting at `1000`.
 
 ### Step C — Draft transfer
 1. Open **Transfers**.
-2. Select from-owner, to-owner, source lot, shares.
-3. Save transfer as draft.
+2. Select from-owner and to-owner (including **Corporation** option for either side).
+3. Set transfer date, source lot, shares, and notes.
+4. Save transfer as draft.
+
+Draft transfers support:
+- **Edit** (change date/parties/lot/shares/notes)
+- **Cancel** (delete draft)
+- **Post** (finalize and make immutable)
 
 ### Step D — Post transfer (Officer/Admin)
 1. In **Transfers**, click **Post** on a draft.
@@ -160,6 +169,15 @@ Ensure web is using correct API base URL for deployment:
 ### API unavailable
 Check containers:
 - `docker compose -f docker-compose.nas.yml ps`
+
+### Transfers look too technical
+The transfer table now shows:
+- owner names instead of IDs
+- lot/certificate references
+- transfer date and posted date
+- notes
+
+If a lot has no manual certificate number, the auto-generated number is used.
 
 ---
 

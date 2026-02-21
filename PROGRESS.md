@@ -30,3 +30,13 @@
 	- added Vite `preview.allowedHosts` for `enterprise.local`
 	- baked `VITE_API_BASE_URL` into web Docker build to avoid stale `localhost:3000/api`
 	- updated NAS CORS/API URL mapping (`enterprise.local:15173` -> `enterprise.local:13000/api`)
+- Shareholder contact enhancements completed: phone + address fields (street/city/state/zip) and edit existing shareholder records.
+- Transfer enhancements completed:
+	- capture and display transfer date
+	- human-readable transfer rows (owner names, cert/lot references, posted date)
+	- explicit Corporation from/to options
+	- draft actions now include Post / Edit / Cancel
+	- notes captured on transfer creation
+- Lot certificate enhancements completed:
+	- certificate number input added to Lots UI
+	- auto-certificate generation starts at `1000` when blank

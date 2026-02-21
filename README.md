@@ -58,7 +58,7 @@ Roles enforced server-side:
 - Config: get/update (Admin-only update)
 - Shareholders: CRUD
 - Lots: CRUD, with immutable share edit rule once in posted transfer
-- Transfers: draft CRUD + transactional post endpoint (append-only once posted)
+- Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, and human-readable owner/lot data
 - Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes)
 - Proxies: CRUD with `proxySharesSnapshot` and represented share logic in meeting mode
 - Dashboard endpoint with active voting shares, excluded breakdown, majority threshold, top holders, bloc builder, recent activity
@@ -84,6 +84,11 @@ Environment/CORS for proxy deployment:
 - Set `VITE_API_BASE_URL=/api`
 - Set `CORS_ORIGIN` to your public web origin (for example `https://shares.example.com`)
 - Keep auth token in `Authorization: Bearer <token>`
+
+## Recent UX additions
+- Shareholders: phone + street/city/state/zip capture and edit support
+- Lots: certificate number input in UI; if blank, API auto-generates from `1000+`
+- Transfers: explicit Corporation from/to options, notes field, and draft `Post / Edit / Cancel` actions
 
 ## Troubleshooting
 ### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`
