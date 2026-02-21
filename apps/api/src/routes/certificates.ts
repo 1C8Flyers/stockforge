@@ -22,8 +22,13 @@ function incorporationPhrase(state: string) {
   const normalized = state.trim();
   if (!normalized) return '';
   const first = normalized.charAt(0).toLowerCase();
-  const article = ['a', 'e', 'i', 'o', 'u'].includes(first) ? 'an' : 'a';
-  return `${article} ${normalized} corporation`;
+  const article = ['a', 'e', 'i', 'o', 'u'].includes(first) ? 'An' : 'A';
+  const titleState = normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+  return `${article} ${titleState} Corporation`;
 }
 
 function buildCertificatePdf(input: {
