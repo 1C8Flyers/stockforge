@@ -18,6 +18,14 @@ function sanitizeFilePart(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+function incorporationPhrase(state: string) {
+  const normalized = state.trim();
+  if (!normalized) return '';
+  const first = normalized.charAt(0).toLowerCase();
+  const article = ['a', 'e', 'i', 'o', 'u'].includes(first) ? 'an' : 'a';
+  return `${article} ${normalized} corporation`;
+}
+
 function buildCertificatePdf(input: {
   appName: string;
   appIncorporationState: string;
@@ -37,11 +45,12 @@ function buildCertificatePdf(input: {
 
     doc.font('Helvetica-Bold').fontSize(22).fillColor('#0f172a').text(input.appName, { align: 'center' });
     if (input.appIncorporationState) {
+      const phrase = incorporationPhrase(input.appIncorporationState);
       doc
         .font('Helvetica')
         .fontSize(10)
         .fillColor('#475569')
-        .text(`State of Incorporation: ${input.appIncorporationState}`, { align: 'center' });
+        .text(phrase, { align: 'center' });
       doc.moveDown(0.25);
     } else {
       doc.moveDown(0.5);
