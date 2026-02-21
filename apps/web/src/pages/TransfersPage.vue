@@ -15,7 +15,10 @@
         <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
       </select>
       <input v-model="form.transferDate" type="date" />
-      <select v-model="form.lotId"><option value="">Lot</option><option v-for="l in lots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option></select>
+      <select v-model="form.lotId">
+        <option value="">Lot</option>
+        <option v-for="l in filteredLots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option>
+      </select>
       <input v-model.number="form.sharesTaken" type="number" min="1" placeholder="Shares" />
       <input v-model="form.notes" placeholder="Notes" />
       <button>{{ editingId ? 'Save draft' : 'Create draft' }}</button>
@@ -45,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 
@@ -58,6 +61,11 @@ const editingId = ref<string | null>(null);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
+const filteredLots = computed(() => {
+  const from = form.value.fromOwnerId;
+  if (!from || from === CORPORATION_VALUE) return [];
+  return lots.value.filter((l) => l.ownerId === from && l.shares > 0 && (l.status === 'Active' || l.status === 'Disputed'));
+});
 
 const displayName = (s: any) => (s ? s.entityName || `${s.firstName || ''} ${s.lastName || ''}`.trim() : '');
 const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString() : '—');
@@ -74,6 +82,13 @@ const load = async () => {
   shareholders.value = (await api.get('/shareholders')).data;
   lots.value = (await api.get('/lots')).data;
 };
+
+watch(
+  () => form.value.fromOwnerId,
+  () => {
+    form.value.lotId = '';
+  }
+);
 
 const clearForm = () => {
   editingId.value = null;
