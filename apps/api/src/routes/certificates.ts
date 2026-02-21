@@ -79,7 +79,13 @@ function buildCertificatePdf(input: {
       .font('Helvetica')
       .fontSize(12)
       .fillColor('#111827')
-      .text(`is the owner of ${input.shares} shares in ${input.appName}.`, { align: 'center' });
+      .text('is the owner of One (1) Common Share', { align: 'center' });
+    doc.moveDown(0.3);
+    doc
+      .font('Helvetica')
+      .fontSize(12)
+      .fillColor('#111827')
+      .text(`of ${input.appName}, fully paid and non-assessable.`, { align: 'center' });
 
     const signatureY = doc.page.height - doc.page.margins.bottom - 100;
     const leftX = doc.page.margins.left + 20;
@@ -92,6 +98,20 @@ function buildCertificatePdf(input: {
 
     doc.font('Helvetica').fontSize(10).fillColor('#475569').text('Secretary', leftX, signatureY + 6, { width: lineWidth, align: 'center' });
     doc.font('Helvetica').fontSize(10).fillColor('#475569').text('President', rightX, signatureY + 6, { width: lineWidth, align: 'center' });
+
+    doc
+      .font('Helvetica')
+      .fontSize(8)
+      .fillColor('#475569')
+      .text(
+        'The shares represented by this certificate are subject to the restrictions on transfer set forth in the Articles of Incorporation and/or Bylaws of the Corporation and any applicable Shareholder Agreement.',
+        doc.page.margins.left,
+        signatureY + 30,
+        {
+          width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+          align: 'left'
+        }
+      );
 
     doc
       .font('Helvetica')
