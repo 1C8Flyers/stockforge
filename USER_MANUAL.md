@@ -38,7 +38,7 @@ The UI hides/disables actions based on role, and API enforces permissions server
 - **Shareholders**: create and maintain person/entity records
 - **Lots**: create and view share certificates/lots
 - **Transfers**: draft and post share transfers
-- **Meetings/Proxies**: meeting setup, attendance, motions/votes, proxy records
+- **Meetings/Proxies**: meeting list + detail workspace (Overview, Attendance, Proxies, Motions & Votes)
 - **Reports**: CSV exports
 - **Audit Log**: read-only operational history with filters and change summaries
 - **Admin** (Admin role only): user/roles, password reset, config, and health
@@ -98,9 +98,10 @@ In lot edit mode, allowed updates are metadata fields (for example owner, status
 
 ### Step C — Draft transfer
 1. Open **Transfers**.
-2. Select from-owner and to-owner (including **Retired Shares** option for either side).
-3. Set transfer date, source lot, shares, and notes.
-4. Save transfer as draft.
+2. Click **Create transfer** to open the transfer popup card.
+3. Select from-owner and to-owner (including **Retired Shares** option for either side).
+4. Set transfer date, source lot, shares, and notes.
+5. Click **Create transfer** to save as draft.
 
 Draft transfers support:
 - **Edit** (change date/parties/lot/shares/notes)
@@ -113,10 +114,15 @@ Draft transfers support:
 3. Transfer status changes to `POSTED`.
 
 ### Step E — Run meeting
-1. Open **Meetings/Proxies** and create a meeting.
-2. Add attendance.
-3. Add/verify proxies.
-4. Record motions and votes.
+1. Open **Meetings/Proxies**.
+2. Click **Create meeting** to open the meeting popup card, then save.
+3. Select the meeting from the left-side list.
+4. In the meeting detail area, use tabs:
+	- **Overview** for summary and quick actions
+	- **Attendance** to mark present shareholders
+	- **Proxies** to add/verify/revoke proxies
+	- **Motions & Votes** to add motions and record/reopen votes
+5. Record motions and votes.
 
 Vote entry supports two patterns:
 - **Standard motion**: present shareholders vote Yes/No/Abstain.
@@ -124,7 +130,7 @@ Vote entry supports two patterns:
 
 In both cases, recorded results are share-weighted automatically based on each voter’s active eligible shares.
 After a motion vote is recorded, that motion is marked **Closed** and no additional votes can be recorded unless a user explicitly clicks **Reopen voting**.
-5. Use represented-shares values for live decisions.
+6. Use represented-shares values for live decisions.
 
 ---
 
