@@ -2,30 +2,42 @@
   <section class="space-y-4">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-slate-900">Lots</h2>
+      <Button v-if="canWrite" type="button" @click="openCreateForm">Add lot</Button>
     </div>
 
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: create/edit actions are disabled.</p>
 
-    <Card v-if="canWrite" class="space-y-3">
-      <form @submit.prevent="save" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Select v-model="form.ownerId" label="Owner">
-          <option disabled value="">Owner</option>
-          <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
-        </Select>
-        <Input v-model="form.shares" type="number" min="1" label="Share Quantity" :disabled="!!editingId" />
-        <Input v-model="form.certificateNumber" label="Certificate" :disabled="!!editingId" />
-        <Select v-model="form.status" label="Status">
-          <option>Active</option><option>Treasury</option><option>Disputed</option><option>Surrendered</option>
-        </Select>
-        <Input v-model="form.source" label="Source" />
-        <Input v-model="form.notes" label="Notes" />
-        <div class="flex items-end gap-2 sm:col-span-2 xl:col-span-2">
-          <Button type="submit">{{ editingId ? 'Save lot' : 'Add lot' }}</Button>
-          <Button v-if="editingId" type="button" variant="secondary" @click="clearForm">Cancel edit</Button>
+    <Teleport to="body">
+      <div v-if="canWrite && formOpen" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-slate-900/50" @click="closeForm" />
+        <div class="relative z-10 mx-auto mt-10 w-[min(1200px,95vw)]">
+          <Card class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-slate-900">{{ editingId ? 'Edit lot' : 'Add lot' }}</h3>
+              <Button type="button" variant="ghost" @click="closeForm">Close</Button>
+            </div>
+            <form @submit.prevent="save" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Select v-model="form.ownerId" label="Owner">
+                <option disabled value="">Owner</option>
+                <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
+              </Select>
+              <Input v-model="form.shares" type="number" min="1" label="Share Quantity" :disabled="!!editingId" />
+              <Input v-model="form.certificateNumber" label="Certificate" :disabled="!!editingId" />
+              <Select v-model="form.status" label="Status">
+                <option>Active</option><option>Treasury</option><option>Disputed</option><option>Surrendered</option>
+              </Select>
+              <Input v-model="form.source" label="Source" />
+              <Input v-model="form.notes" label="Notes" />
+              <div class="flex items-end gap-2 sm:col-span-2 xl:col-span-2">
+                <Button type="submit">{{ editingId ? 'Save lot' : 'Add lot' }}</Button>
+                <Button type="button" variant="secondary" @click="closeForm">{{ editingId ? 'Cancel edit' : 'Cancel' }}</Button>
+              </div>
+            </form>
+            <p v-if="editingId" class="text-sm text-slate-500">Certificate number and share quantity are locked after lot creation.</p>
+          </Card>
         </div>
-      </form>
-      <p v-if="editingId" class="text-sm text-slate-500">Certificate number and share quantity are locked after lot creation.</p>
-    </Card>
+      </div>
+    </Teleport>
 
     <Card>
       <Input v-model="search" label="Search" placeholder="Owner, certificate, status, source..." />
@@ -66,6 +78,7 @@ const shareholders = ref<any[]>([]);
 const search = ref('');
 const form = ref({ ownerId: '', shares: '', certificateNumber: '', source: '', notes: '', status: 'Active' });
 const editingId = ref<string | null>(null);
+const formOpen = ref(false);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const filteredRows = computed(() => {
@@ -88,6 +101,16 @@ const clearForm = () => {
   form.value = { ownerId: '', shares: '', certificateNumber: '', source: '', notes: '', status: 'Active' };
 };
 
+const closeForm = () => {
+  formOpen.value = false;
+  clearForm();
+};
+
+const openCreateForm = () => {
+  clearForm();
+  formOpen.value = true;
+};
+
 const save = async () => {
   if (editingId.value) {
     const payload = {
@@ -108,7 +131,7 @@ const save = async () => {
     await api.post('/lots', payload);
   }
 
-  clearForm();
+  closeForm();
   await load();
 };
 
@@ -122,6 +145,7 @@ const editLot = (l: any) => {
     notes: l.notes || '',
     status: l.status
   };
+  formOpen.value = true;
 };
 
 onMounted(load);
