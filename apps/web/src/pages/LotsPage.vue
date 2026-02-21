@@ -8,13 +8,14 @@
         <option v-for="s in shareholders" :value="s.id" :key="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
       </select>
       <input v-model.number="form.shares" type="number" min="1" placeholder="Shares" />
+      <input v-model="form.certificateNumber" placeholder="Certificate number" />
       <select v-model="form.status"><option>Active</option><option>Disputed</option><option>Surrendered</option></select>
       <button>Add lot</button>
     </form>
 
     <table border="1" cellpadding="6" width="100%">
-      <thead><tr><th>Owner</th><th>Shares</th><th>Status</th><th>Source</th></tr></thead>
-      <tbody><tr v-for="l in rows" :key="l.id"><td>{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td>{{ l.shares }}</td><td>{{ l.status }}</td><td>{{ l.source }}</td></tr></tbody>
+      <thead><tr><th>Owner</th><th>Certificate</th><th>Shares</th><th>Status</th><th>Source</th></tr></thead>
+      <tbody><tr v-for="l in rows" :key="l.id"><td>{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td>{{ l.certificateNumber || '—' }}</td><td>{{ l.shares }}</td><td>{{ l.status }}</td><td>{{ l.source }}</td></tr></tbody>
     </table>
   </section>
 </template>
@@ -26,7 +27,7 @@ import { useAuthStore } from '../stores/auth';
 
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
-const form = ref({ ownerId: '', shares: 1, status: 'Active' });
+const form = ref({ ownerId: '', shares: 1, certificateNumber: '', status: 'Active' });
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 
@@ -36,8 +37,8 @@ const load = async () => {
 };
 
 const create = async () => {
-  await api.post('/lots', form.value);
-  form.value = { ownerId: '', shares: 1, status: 'Active' };
+  await api.post('/lots', { ...form.value, certificateNumber: form.value.certificateNumber || undefined });
+  form.value = { ownerId: '', shares: 1, certificateNumber: '', status: 'Active' };
   await load();
 };
 

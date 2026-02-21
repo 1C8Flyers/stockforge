@@ -7,7 +7,7 @@
       <select v-model="form.fromOwnerId"><option value="">From owner</option><option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option></select>
       <select v-model="form.toOwnerId"><option value="">To owner</option><option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option></select>
       <input v-model="form.transferDate" type="date" />
-      <select v-model="form.lotId"><option value="">Lot</option><option v-for="l in lots" :value="l.id" :key="l.id">{{ l.id.slice(0,8) }} - {{ l.shares }}</option></select>
+      <select v-model="form.lotId"><option value="">Lot</option><option v-for="l in lots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option></select>
       <input v-model.number="form.sharesTaken" type="number" min="1" placeholder="Shares" />
       <button>Create draft</button>
     </form>
