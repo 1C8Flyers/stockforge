@@ -15,6 +15,7 @@ export var ShareholderStatus;
 export var LotStatus;
 (function (LotStatus) {
     LotStatus["Active"] = "Active";
+    LotStatus["Treasury"] = "Treasury";
     LotStatus["TransferredOut"] = "TransferredOut";
     LotStatus["Surrendered"] = "Surrendered";
     LotStatus["Disputed"] = "Disputed";

@@ -12,6 +12,7 @@ export declare enum ShareholderStatus {
 }
 export declare enum LotStatus {
     Active = "Active",
+    Treasury = "Treasury",
     TransferredOut = "TransferredOut",
     Surrendered = "Surrendered",
     Disputed = "Disputed"

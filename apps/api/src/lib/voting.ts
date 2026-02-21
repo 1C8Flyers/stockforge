@@ -12,6 +12,7 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
   let activeVotingShares = 0;
   let excludedByOwner = 0;
   let excludedBySurrendered = 0;
+  let excludedByTreasury = 0;
   let excludedByDisputed = 0;
 
   for (const lot of lots) {
@@ -19,20 +20,22 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
       lot.owner.status === ShareholderStatus.DeceasedOutstanding ||
       lot.owner.status === ShareholderStatus.DeceasedSurrendered;
     const surrenderedExcluded = lot.status === LotStatus.Surrendered;
+    const treasuryExcluded = lot.status === LotStatus.Treasury;
     const disputedExcluded = excludeDisputed && lot.status === LotStatus.Disputed;
 
     if (ownerExcluded) excludedByOwner += lot.shares;
     else if (surrenderedExcluded) excludedBySurrendered += lot.shares;
+    else if (treasuryExcluded) excludedByTreasury += lot.shares;
     else if (disputedExcluded) excludedByDisputed += lot.shares;
     else if (lot.status === LotStatus.Active || lot.status === LotStatus.Disputed) activeVotingShares += lot.shares;
   }
 
-  const excludedShares = excludedByOwner + excludedBySurrendered + excludedByDisputed;
+  const excludedShares = excludedByOwner + excludedBySurrendered + excludedByTreasury + excludedByDisputed;
   return {
     activeVotingShares,
     excludedShares,
     majorityThreshold: Math.floor(activeVotingShares / 2) + 1,
-    breakdown: { excludedByOwner, excludedBySurrendered, excludedByDisputed },
+    breakdown: { excludedByOwner, excludedBySurrendered, excludedByTreasury, excludedByDisputed },
     rulesJson: { excludeDisputedFromVoting: excludeDisputed }
   };
 }

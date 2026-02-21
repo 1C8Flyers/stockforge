@@ -1,0 +1,1 @@
+ALTER TYPE "LotStatus" ADD VALUE IF NOT EXISTS 'Treasury';

@@ -64,7 +64,9 @@ const canPost = computed(() => auth.canPost);
 const filteredLots = computed(() => {
   const from = form.value.fromOwnerId;
   if (!from || from === RETIRED_VALUE) return [];
-  return lots.value.filter((l) => l.ownerId === from && l.shares > 0 && (l.status === 'Active' || l.status === 'Disputed'));
+  return lots.value.filter(
+    (l) => l.ownerId === from && l.shares > 0 && (l.status === 'Active' || l.status === 'Disputed' || l.status === 'Treasury')
+  );
 });
 
 const displayName = (s: any) => (s ? s.entityName || `${s.firstName || ''} ${s.lastName || ''}`.trim() : '');

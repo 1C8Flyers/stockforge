@@ -11,7 +11,7 @@
       <input v-model="form.certificateNumber" placeholder="Certificate number" :disabled="!!editingId" />
       <input v-model="form.source" placeholder="Source" />
       <input v-model="form.notes" placeholder="Notes" />
-      <select v-model="form.status"><option>Active</option><option>Disputed</option><option>Surrendered</option></select>
+      <select v-model="form.status"><option>Active</option><option>Treasury</option><option>Disputed</option><option>Surrendered</option></select>
       <button>{{ editingId ? 'Save lot' : 'Add lot' }}</button>
       <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
     </form>

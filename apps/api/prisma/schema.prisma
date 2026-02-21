@@ -28,6 +28,7 @@ enum ShareholderStatus {
 
 enum LotStatus {
   Active
+  Treasury
   TransferredOut
   Surrendered
   Disputed

@@ -14,6 +14,7 @@ export enum ShareholderStatus {
 
 export enum LotStatus {
   Active = 'Active',
+  Treasury = 'Treasury',
   TransferredOut = 'TransferredOut',
   Surrendered = 'Surrendered',
   Disputed = 'Disputed'

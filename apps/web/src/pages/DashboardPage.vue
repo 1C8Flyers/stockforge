@@ -6,7 +6,7 @@
       <div>Active voting shares: <b>{{ data.activeVotingShares }}</b></div>
       <div>Majority threshold: <b>{{ data.majorityThreshold }}</b></div>
       <div>
-        Excluded: Owner {{ data.excludedBreakdown.excludedByOwner }}, Surrendered {{ data.excludedBreakdown.excludedBySurrendered }}, Disputed {{ data.excludedBreakdown.excludedByDisputed }}
+        Excluded: Owner {{ data.excludedBreakdown.excludedByOwner }}, Treasury {{ data.excludedBreakdown.excludedByTreasury }}, Surrendered {{ data.excludedBreakdown.excludedBySurrendered }}, Disputed {{ data.excludedBreakdown.excludedByDisputed }}
       </div>
       <h3>Top Shareholders</h3>
       <table border="1" cellpadding="6">
