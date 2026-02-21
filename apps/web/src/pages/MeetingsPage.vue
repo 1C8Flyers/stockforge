@@ -1,22 +1,34 @@
 <template>
   <section class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold text-slate-900">Meetings & Proxies</h2>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-900">Meetings & Proxies</h2>
+        <p class="text-sm text-slate-600">Select a meeting to manage attendance, proxies, and motions.</p>
+      </div>
       <Button v-if="canWrite" type="button" @click="meetingFormOpen = true">Create meeting</Button>
     </div>
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: meeting/proxy create actions are disabled.</p>
 
     <div class="grid gap-4 lg:grid-cols-[360px,1fr]">
       <Card class="p-0">
-        <div class="border-b border-slate-200 px-4 py-3"><h3 class="font-semibold text-slate-900">Meetings</h3></div>
-        <div class="overflow-x-auto">
+        <div class="space-y-3 border-b border-slate-200 px-4 py-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900">Meetings</h3>
+            <span class="text-xs text-slate-500">{{ filteredMeetings.length }} shown</span>
+          </div>
+          <Input v-model="meetingSearch" label="Search meetings" placeholder="Title or date" />
+        </div>
+        <div class="max-h-[70vh] overflow-auto">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Title</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Date</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Represented</th></tr></thead>
             <tbody class="divide-y divide-slate-200 bg-white">
-              <tr v-for="m in meetings" :key="m.id" class="cursor-pointer hover:bg-slate-50" :class="selectedMeetingId === m.id ? 'bg-brand-50' : ''" @click="selectMeeting(m.id)">
-                <td class="px-4 py-3 text-sm text-slate-900">{{ m.title }}</td>
+              <tr v-for="m in filteredMeetings" :key="m.id" class="cursor-pointer hover:bg-slate-50" :class="selectedMeetingId === m.id ? 'bg-brand-50 ring-1 ring-inset ring-brand-200' : ''" @click="selectMeeting(m.id)">
+                <td class="px-4 py-3 text-sm font-medium text-slate-900">{{ m.title }}</td>
                 <td class="px-4 py-3 text-sm text-slate-600">{{ new Date(m.dateTime).toLocaleString() }}</td>
                 <td class="px-4 py-3 text-sm text-slate-600">{{ mode[m.id]?.representedShares || 0 }}</td>
+              </tr>
+              <tr v-if="filteredMeetings.length === 0">
+                <td colspan="3" class="px-4 py-6 text-sm text-slate-500">No meetings match your search.</td>
               </tr>
             </tbody>
           </table>
@@ -24,34 +36,56 @@
       </Card>
 
       <Card v-if="selectedMeetingId" class="space-y-4">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900">{{ selectedMode?.meeting?.title }}</h3>
+            <h3 class="text-lg font-semibold text-slate-900">{{ selectedMode?.meeting?.title }}</h3>
             <p class="text-xs text-slate-500">{{ new Date(selectedMode?.meeting?.dateTime || '').toLocaleString() }}</p>
           </div>
-          <div class="text-xs text-slate-500">
-            Present {{ selectedMode?.presentShares || 0 }} · Proxy {{ selectedMode?.proxyShares || 0 }} · Represented {{ selectedMode?.representedShares || 0 }}
+          <div class="flex flex-wrap gap-2">
+            <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="proxyFormOpen = true">Add proxy</Button>
+            <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="motionFormOpen = true">Add motion</Button>
+          </div>
+        </div>
+
+        <div class="grid gap-2 sm:grid-cols-3">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Present shares</p>
+            <p class="font-semibold text-slate-900">{{ selectedMode?.presentShares || 0 }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Proxy shares</p>
+            <p class="font-semibold text-slate-900">{{ selectedMode?.proxyShares || 0 }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Represented</p>
+            <p class="font-semibold text-slate-900">{{ selectedMode?.representedShares || 0 }}</p>
           </div>
         </div>
 
         <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
           <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'overview' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'overview'">Overview</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'attendance' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'attendance'">Attendance</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'proxies' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'proxies'">Proxies</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'motions' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'motions'">Motions & Votes</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'attendance' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'attendance'">Attendance ({{ presentCount }}/{{ shareholders.length }})</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'proxies' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'proxies'">Proxies ({{ proxies.length }})</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm" :class="activeTab === 'motions' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'" @click="activeTab = 'motions'">Motions & Votes ({{ selectedMotions.length }})</button>
         </div>
 
         <div v-if="activeTab === 'overview'" class="space-y-3">
-          <p class="text-sm text-slate-600">Select a section above to manage attendance, proxies, and motions for this meeting.</p>
-          <div v-if="canWrite" class="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" @click="proxyFormOpen = true">Add proxy</Button>
-            <Button type="button" variant="secondary" @click="motionFormOpen = true">Add motion</Button>
+          <p class="text-sm text-slate-600">Use tabs above to update attendance, process proxies, and run motions with voting.</p>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700">
+              <p class="font-medium text-slate-900">Attendance progress</p>
+              <p class="mt-1">{{ presentCount }} of {{ shareholders.length }} shareholders marked present.</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700">
+              <p class="font-medium text-slate-900">Motion status</p>
+              <p class="mt-1">{{ closedMotionsCount }} closed · {{ openMotionsCount }} open.</p>
+            </div>
           </div>
         </div>
 
         <div v-if="activeTab === 'attendance'" class="space-y-3">
           <p class="text-xs text-slate-500">Toggle who is present for the selected meeting.</p>
-          <ul class="space-y-2">
+          <ul class="max-h-[52vh] space-y-2 overflow-auto pr-1">
             <li v-for="s in shareholders" :key="s.id" class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <span class="text-slate-800">
                 {{ displayName(s) }}
@@ -77,10 +111,16 @@
             <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="proxyFormOpen = true">Add proxy</Button>
           </div>
           <p v-if="!canWrite" class="text-sm text-slate-600">Read-only mode: cannot create proxies.</p>
-          <ul class="space-y-2">
+          <ul class="max-h-[52vh] space-y-2 overflow-auto pr-1">
             <li v-for="p in proxies" :key="p.id" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span>{{ p.proxyHolderName }} · {{ p.status }} · {{ p.proxySharesSnapshot }} shares</span>
+                <span>
+                  {{ p.proxyHolderName }}
+                  <span class="mx-1">·</span>
+                  <span :class="p.status === 'Verified' ? 'text-emerald-700' : p.status === 'Revoked' ? 'text-rose-700' : 'text-amber-700'">{{ p.status }}</span>
+                  <span class="mx-1">·</span>
+                  {{ p.proxySharesSnapshot }} shares
+                </span>
                 <div v-if="canWrite" class="flex gap-2">
                   <Button
                     size="sm"
@@ -110,7 +150,7 @@
             <h4 class="text-sm font-semibold text-slate-900">Motions & Votes</h4>
             <Button v-if="canWrite" type="button" size="sm" variant="secondary" @click="motionFormOpen = true">Add motion</Button>
           </div>
-          <ul class="space-y-3">
+          <ul class="max-h-[62vh] space-y-3 overflow-auto pr-1">
             <li v-for="m in selectedMotions" :key="m.id" class="rounded-lg border border-slate-200 p-3">
               <p class="text-sm font-semibold text-slate-900">{{ m.title }}</p>
               <p class="mt-1 text-xs text-slate-500">
@@ -272,6 +312,7 @@ import Input from '../components/ui/Input.vue';
 import Select from '../components/ui/Select.vue';
 
 const meetings = ref<any[]>([]);
+const meetingSearch = ref('');
 const shareholders = ref<any[]>([]);
 const proxies = ref<any[]>([]);
 const presentVoters = ref<Array<{ shareholderId: string; name: string; shares: number }>>([]);
@@ -294,6 +335,20 @@ const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
 const selectedMode = computed(() => (selectedMeetingId.value ? mode.value[selectedMeetingId.value] : null));
 const selectedMotions = computed(() => selectedMode.value?.meeting?.motions || []);
+const filteredMeetings = computed(() => {
+  const q = meetingSearch.value.trim().toLowerCase();
+  if (!q) return meetings.value;
+  return meetings.value.filter((m) => {
+    const dt = new Date(m.dateTime).toLocaleString();
+    return `${m.title} ${dt}`.toLowerCase().includes(q);
+  });
+});
+const presentCount = computed(() => {
+  const rows = selectedMode.value?.meeting?.attendance || [];
+  return rows.filter((a: any) => a.present).length;
+});
+const closedMotionsCount = computed(() => selectedMotions.value.filter((m: any) => m.isClosed).length);
+const openMotionsCount = computed(() => selectedMotions.value.length - closedMotionsCount.value);
 const presentShareholderIds = computed(() => {
   const rows = selectedMode.value?.meeting?.attendance || [];
   return new Set(rows.filter((a: any) => a.present).map((a: any) => a.shareholderId));
