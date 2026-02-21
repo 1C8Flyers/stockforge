@@ -328,9 +328,7 @@ const selectMeeting = async (id: string) => {
   collapsedVotePanels.value = {};
   proxies.value = (await api.get('/proxies', { params: { meetingId: id } })).data;
   await loadPresentVoters();
-  if (!mode.value[id]) {
-    mode.value[id] = (await api.get(`/meetings/${id}/mode`)).data;
-  }
+  mode.value[id] = (await api.get(`/meetings/${id}/mode`)).data;
 };
 
 const createMeeting = async () => {
