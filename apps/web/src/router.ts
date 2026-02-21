@@ -8,6 +8,7 @@ import MeetingsPage from './pages/MeetingsPage.vue';
 import ReportsPage from './pages/ReportsPage.vue';
 import AuditLogPage from './pages/AuditLogPage.vue';
 import AdminPage from './pages/AdminPage.vue';
+import UserManualPage from './pages/UserManualPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -20,6 +21,7 @@ export const router = createRouter({
     { path: '/meetings', component: MeetingsPage, meta: { title: 'Meetings' } },
     { path: '/reports', component: ReportsPage, meta: { title: 'Reports' } },
     { path: '/audit-log', component: AuditLogPage, meta: { title: 'Audit Log' } },
+    { path: '/user-manual', component: UserManualPage, meta: { title: 'User Manual' } },
     { path: '/admin', component: AdminPage, meta: { title: 'Admin' } }
   ]
 });

@@ -34,7 +34,8 @@ const navItems = computed(() => {
     { path: '/transfers', label: 'Transfers' },
     { path: '/meetings', label: 'Meetings' },
     { path: '/reports', label: 'Reports' },
-    { path: '/audit-log', label: 'Audit Log' }
+    { path: '/audit-log', label: 'Audit Log' },
+    { path: '/user-manual', label: 'User Manual' }
   ];
 
   if (auth.isAdmin) {

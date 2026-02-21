@@ -76,6 +76,7 @@ const routeTitleMap: Record<string, string> = {
   '/meetings': 'Meetings',
   '/reports': 'Reports',
   '/audit-log': 'Audit Log',
+  '/user-manual': 'User Manual',
   '/admin': 'Admin'
 };
 
