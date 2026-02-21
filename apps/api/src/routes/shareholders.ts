@@ -13,6 +13,11 @@ const schema = z.object({
   entityName: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
+  address1: z.string().optional(),
+  address2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postalCode: z.string().optional(),
   status: z.nativeEnum(ShareholderStatus).default(ShareholderStatus.Active),
   notes: z.string().optional(),
   tags: z.array(z.string()).optional().default([])
