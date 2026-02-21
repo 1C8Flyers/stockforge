@@ -77,3 +77,7 @@
 - Reporting enhancements completed:
 	- PDF layout cleanup (table readability and column tuning)
 	- meeting report PDF export with meeting summary, attendance, proxies, motions, and vote details
+- Pending-work visibility enhancements completed:
+	- Transfers nav badge shows count of draft transfers
+	- Meetings nav badge shows count of open motions + draft proxies
+	- Meetings page left list shows per-meeting pending count (open motions + draft proxies)

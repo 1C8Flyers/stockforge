@@ -20,15 +20,24 @@
         </div>
         <div class="max-h-[70vh] overflow-auto">
           <table class="min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Title</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Date</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Represented</th></tr></thead>
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Title</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Date</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Pending</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Represented</th></tr></thead>
             <tbody class="divide-y divide-slate-200 bg-white">
               <tr v-for="m in filteredMeetings" :key="m.id" class="cursor-pointer hover:bg-slate-50" :class="selectedMeetingId === m.id ? 'bg-brand-50 ring-1 ring-inset ring-brand-200' : ''" @click="selectMeeting(m.id)">
                 <td class="px-4 py-3 text-sm font-medium text-slate-900">{{ m.title }}</td>
                 <td class="px-4 py-3 text-sm text-slate-600">{{ new Date(m.dateTime).toLocaleString() }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600">
+                  <span
+                    v-if="pendingForMeeting(m.id) > 0"
+                    class="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700"
+                  >
+                    {{ pendingForMeeting(m.id) }}
+                  </span>
+                  <span v-else>—</span>
+                </td>
                 <td class="px-4 py-3 text-sm text-slate-600">{{ mode[m.id]?.representedShares || 0 }}</td>
               </tr>
               <tr v-if="filteredMeetings.length === 0">
-                <td colspan="3" class="px-4 py-6 text-sm text-slate-500">No meetings match your search.</td>
+                <td colspan="4" class="px-4 py-6 text-sm text-slate-500">No meetings match your search.</td>
               </tr>
             </tbody>
           </table>
@@ -356,6 +365,14 @@ const presentShareholderIds = computed(() => {
   const rows = selectedMode.value?.meeting?.attendance || [];
   return new Set(rows.filter((a: any) => a.present).map((a: any) => a.shareholderId));
 });
+
+const pendingForMeeting = (meetingId: string) => {
+  const meeting = mode.value[meetingId]?.meeting;
+  if (!meeting) return 0;
+  const openMotions = (meeting.motions || []).filter((motion: any) => !motion.isClosed).length;
+  const pendingProxies = (meeting.proxies || []).filter((proxy: any) => proxy.status === 'Draft').length;
+  return openMotions + pendingProxies;
+};
 
 const displayName = (s: any) => s.entityName || `${s.firstName || ''} ${s.lastName || ''}`;
 

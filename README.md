@@ -97,6 +97,8 @@ Environment/CORS for proxy deployment:
 - Meetings/Votes: election vote type with office + candidates and candidate-level share tallying
 - Meetings/Votes: election motions report winners/totals (not Passed/Failed)
 - Meetings/Votes: motions auto-close after votes are recorded; additional votes are blocked until explicitly reopened
+- Navigation: Transfers and Meetings menu items now show pending badges (draft transfers; open motions + draft proxies)
+- Meetings page: left-side meeting list includes per-meeting pending badge (open motions + draft proxies)
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

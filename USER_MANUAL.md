@@ -43,6 +43,10 @@ The UI hides/disables actions based on role, and API enforces permissions server
 - **Audit Log**: read-only operational history with filters and change summaries
 - **Admin** (Admin role only): user/roles, password reset, config, and health
 
+Navigation pending indicators:
+- **Transfers** shows a badge when draft transfers are pending.
+- **Meetings/Proxies** shows a badge when open motions or draft proxies are pending.
+
 ---
 
 ## 5) Core concepts you must know
@@ -117,6 +121,7 @@ Draft transfers support:
 1. Open **Meetings/Proxies**.
 2. Click **Create meeting** to open the meeting popup card, then save.
 3. Select the meeting from the left-side list.
+	- Each meeting row shows a pending badge when that meeting has open motions or draft proxies.
 4. In the meeting detail area, use tabs:
 	- **Overview** for summary and quick actions
 	- **Attendance** to mark present shareholders
