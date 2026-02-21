@@ -133,6 +133,7 @@
             <p class="mt-1 text-xs text-slate-500">
               Type: {{ motionType(m) }}
               <span v-if="motionType(m) === 'ELECTION'"> · Office: {{ m.officeTitle || '—' }}</span>
+              <span> · Status: {{ m.isClosed ? 'Closed' : 'Open' }}</span>
             </p>
             <p class="mt-1 text-sm text-slate-600">{{ m.text }}</p>
             <p v-if="latestVote(m)" class="mt-2 text-xs text-slate-500">
@@ -144,7 +145,7 @@
                 <li v-for="row in electionTotals(m)" :key="row.candidate">{{ row.candidate }}: {{ row.shares }} shares</li>
               </ul>
             </div>
-            <form v-if="canPost && !isVotePanelCollapsed(m.id)" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
+            <form v-if="canPost && !isVotePanelCollapsed(m)" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
               <div v-if="presentVoters.length === 0" class="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
                 No present shareholders to vote.
               </div>
@@ -173,7 +174,7 @@
               <p class="font-medium">Votes recorded.</p>
               <p class="mt-1">{{ collapsedSummaryText(m) }}</p>
               <div class="mt-2">
-                <Button size="sm" variant="secondary" @click="openVotePanel(m.id)">Reopen voting</Button>
+                <Button size="sm" variant="secondary" :loading="reopeningMotionId === m.id" @click="openVotePanel(m.id)">Reopen voting</Button>
               </div>
             </div>
           </li>
@@ -208,6 +209,7 @@ const voteForms = ref<Record<string, Record<string, string>>>({});
 const recordingMotionId = ref('');
 const recordedMotionId = ref('');
 const collapsedVotePanels = ref<Record<string, boolean>>({});
+const reopeningMotionId = ref('');
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
@@ -243,6 +245,7 @@ const loadPresentVoters = async () => {
 
 const selectMeeting = async (id: string) => {
   selectedMeetingId.value = id;
+  collapsedVotePanels.value = {};
   proxies.value = (await api.get('/proxies', { params: { meetingId: id } })).data;
   await loadPresentVoters();
   if (!mode.value[id]) {
@@ -324,6 +327,7 @@ const recordVote = async (motionId: string) => {
     const form = voteForm(motionId);
     const motion = selectedMotions.value.find((m: any) => m.id === motionId);
     if (!motion) return;
+    if (motion.isClosed) return;
 
     if (motionType(motion) === 'ELECTION') {
       const ballots = presentVoters.value
@@ -359,10 +363,17 @@ const latestVote = (motion: any) => {
   return motion.votes[motion.votes.length - 1];
 };
 
-const isVotePanelCollapsed = (motionId: string) => Boolean(collapsedVotePanels.value[motionId]);
+const isVotePanelCollapsed = (motion: any) => Boolean(motion?.isClosed) || Boolean(collapsedVotePanels.value[motion?.id]);
 
-const openVotePanel = (motionId: string) => {
-  collapsedVotePanels.value[motionId] = false;
+const openVotePanel = async (motionId: string) => {
+  reopeningMotionId.value = motionId;
+  try {
+    await api.post(`/meetings/motions/${motionId}/reopen`);
+    collapsedVotePanels.value[motionId] = false;
+    await refreshSelectedMode();
+  } finally {
+    reopeningMotionId.value = '';
+  }
 };
 
 const collapsedSummaryText = (motion: any) => {

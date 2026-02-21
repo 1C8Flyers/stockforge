@@ -169,6 +169,9 @@ export async function meetingRoutes(app: FastifyInstance) {
       include: { meeting: { include: { snapshot: true, attendance: true, proxies: true } } }
     });
     if (!motion) return reply.notFound();
+    if (motion.isClosed) {
+      return reply.code(409).send({ error: 'Motion is closed. Reopen it before recording additional votes.' });
+    }
 
     const presentIds = new Set(motion.meeting.attendance.filter((a) => a.present).map((a) => a.shareholderId));
     const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(motion.meeting.proxies);
@@ -266,9 +269,23 @@ export async function meetingRoutes(app: FastifyInstance) {
       ? (represented > 0 ? VoteResult.Passed : VoteResult.Failed)
       : (yesShares >= threshold && represented > 0 ? VoteResult.Passed : VoteResult.Failed);
 
-    const vote = await prisma.vote.create({ data: { motionId, yesShares, noShares, abstainShares, result, detailsJson: details as any } });
+    const vote = await prisma.$transaction(async (tx) => {
+      const created = await tx.vote.create({ data: { motionId, yesShares, noShares, abstainShares, result, detailsJson: details as any } });
+      await tx.motion.update({ where: { id: motionId }, data: { isClosed: true } });
+      return created;
+    });
     await audit(prisma, request.userContext.id, 'CREATE', 'Vote', vote.id, { yesShares, noShares, abstainShares, result, details });
     return vote;
+  });
+
+  app.post('/motions/:motionId/reopen', { preHandler: requireRoles(...canPostRoles) }, async (request, reply) => {
+    const { motionId } = z.object({ motionId: z.string() }).parse(request.params);
+    const existing = await prisma.motion.findUnique({ where: { id: motionId } });
+    if (!existing) return reply.notFound();
+
+    const updated = await prisma.motion.update({ where: { id: motionId }, data: { isClosed: false } });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'Motion', motionId, { before: { isClosed: existing.isClosed }, after: { isClosed: updated.isClosed } });
+    return updated;
   });
 
   app.get('/:id/mode', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {

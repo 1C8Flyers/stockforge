@@ -224,6 +224,7 @@ model Motion {
   type      MotionType @default(STANDARD)
   officeTitle String?
   candidatesJson Json?
+  isClosed  Boolean   @default(false)
   voteRule  VoteRule  @default(SIMPLE_MAJORITY)
   createdAt DateTime  @default(now())
   meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
