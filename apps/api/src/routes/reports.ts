@@ -347,13 +347,18 @@ export async function reportRoutes(app: FastifyInstance) {
           motion.votes.forEach((vote, voteIndex) => {
             ensureSpace(40);
             doc.moveDown(0.2);
-            doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text(`Vote ${voteIndex + 1} • ${new Date(vote.createdAt).toLocaleString()} • Result: ${vote.result}`);
-            doc.font('Helvetica').fontSize(9).fillColor('#334155').text(`Yes: ${vote.yesShares} • No: ${vote.noShares} • Abstain: ${vote.abstainShares}`);
-
             const details = asRecord((vote as any).detailsJson);
             const detailsType = String(details.type || '');
+            const isElectionVote = detailsType === 'ELECTION' || motionType === 'ELECTION';
 
-            if (detailsType === 'ELECTION') {
+            if (isElectionVote) {
+              doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text(`Election vote ${voteIndex + 1} • ${new Date(vote.createdAt).toLocaleString()}`);
+            } else {
+              doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text(`Vote ${voteIndex + 1} • ${new Date(vote.createdAt).toLocaleString()} • Result: ${vote.result}`);
+              doc.font('Helvetica').fontSize(9).fillColor('#334155').text(`Yes: ${vote.yesShares} • No: ${vote.noShares} • Abstain: ${vote.abstainShares}`);
+            }
+
+            if (isElectionVote) {
               const totals = Array.isArray(details.totals) ? details.totals : [];
               const winners = Array.isArray(details.winners) ? details.winners.map((w) => String(w)) : [];
               if (totals.length) {

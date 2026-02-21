@@ -129,6 +129,8 @@ Vote entry supports two patterns:
 - **Election**: choose office + candidates, then each present shareholder selects a candidate.
 
 In both cases, recorded results are share-weighted automatically based on each voter’s active eligible shares.
+- Standard motions are reported as Yes/No/Abstain totals with Passed/Failed outcomes.
+- Election motions are reported as candidate totals and winner(s), not Passed/Failed.
 After a motion vote is recorded, that motion is marked **Closed** and no additional votes can be recorded unless a user explicitly clicks **Reopen voting**.
 6. Use represented-shares values for live decisions.
 
@@ -149,7 +151,8 @@ From **Reports** page:
 	- meeting summary totals
 	- attendance (present)
 	- proxies and statuses
-	- motions and vote results
+	- standard motion vote results
+	- election totals and winner details
 	- detailed ballot/election breakdown
 
 Use these exports for review packets and compliance records.

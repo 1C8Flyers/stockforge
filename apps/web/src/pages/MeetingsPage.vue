@@ -159,8 +159,11 @@
                 <span> · Status: {{ m.isClosed ? 'Closed' : 'Open' }}</span>
               </p>
               <p class="mt-1 text-sm text-slate-600">{{ m.text }}</p>
-              <p v-if="latestVote(m)" class="mt-2 text-xs text-slate-500">
+              <p v-if="latestVote(m) && motionType(m) !== 'ELECTION'" class="mt-2 text-xs text-slate-500">
                 Latest vote: Yes {{ latestVote(m)?.yesShares }} · No {{ latestVote(m)?.noShares }} · Abstain {{ latestVote(m)?.abstainShares }} · Result {{ latestVote(m)?.result }}
+              </p>
+              <p v-if="latestVote(m) && motionType(m) === 'ELECTION'" class="mt-2 text-xs text-slate-500">
+                Latest election winners: {{ electionWinnersText(m) }}
               </p>
               <div v-if="motionType(m) === 'ELECTION' && electionTotals(m).length" class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
                 <p class="font-medium">Latest election totals</p>
@@ -532,9 +535,17 @@ const collapsedSummaryText = (motion: any) => {
   if (!v) return 'No vote summary available.';
   if (motionType(motion) === 'ELECTION') {
     const totals = electionTotals(motion).map((t) => `${t.candidate}: ${t.shares}`).join(' · ');
-    return totals || `Result: ${v.result}`;
+    return totals || 'Election totals recorded.';
   }
   return `Yes ${v.yesShares} · No ${v.noShares} · Abstain ${v.abstainShares} · ${v.result}`;
+};
+
+const electionWinnersText = (motion: any) => {
+  const details = latestVote(motion)?.detailsJson;
+  if (!details || typeof details !== 'object') return 'Not available';
+  const winners = (details as any).winners;
+  if (!Array.isArray(winners) || winners.length === 0) return 'No winner recorded';
+  return winners.map((w: unknown) => String(w)).join(', ');
 };
 
 const proxyForGrantor = (shareholderId: string) => {

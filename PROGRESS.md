@@ -67,6 +67,7 @@
 	- per-shareholder ballots for present attendees
 	- automatic share-weighted tallying from active shares
 	- election vote type with office + candidate setup and candidate totals/winner detail
+	- election motions now display winners/totals instead of Passed/Failed result framing
 	- motions now auto-close after vote recording; reopening is explicit and required for additional voting
 - Reporting enhancements completed:
 	- PDF layout cleanup (table readability and column tuning)

@@ -94,6 +94,7 @@ Environment/CORS for proxy deployment:
 - Admin/Settings: user + role management, password reset, voting config toggle, app display name/logo controls, and system health/migration summary
 - Meetings/Votes: attendance-driven per-shareholder ballot entry with automatic share-weighted vote totals
 - Meetings/Votes: election vote type with office + candidates and candidate-level share tallying
+- Meetings/Votes: election motions report winners/totals (not Passed/Failed)
 - Meetings/Votes: motions auto-close after votes are recorded; additional votes are blocked until explicitly reopened
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
