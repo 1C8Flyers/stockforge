@@ -108,13 +108,21 @@ function buildCertificatePdf(input: {
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#111827').text('Stock Certificate', { align: 'center' });
     doc.moveDown(1.1);
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(input.printLabel === 'REPRINT' ? '#b45309' : '#166534').text(input.printLabel, {
-      align: 'right'
+    const qrSize = 76;
+    const qrX = doc.page.width - doc.page.margins.right - qrSize;
+    const qrY = doc.page.margins.top + 6;
+    doc.image(input.verificationQrPng, qrX, qrY, {
+      width: qrSize,
+      height: qrSize
     });
-    doc.image(input.verificationQrPng, doc.page.width - doc.page.margins.right - 90, doc.page.margins.top + 10, {
-      width: 80,
-      height: 80
-    });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .fillColor(input.printLabel === 'REPRINT' ? '#b45309' : '#166534')
+      .text(input.printLabel, qrX, qrY + qrSize + 4, {
+        width: qrSize,
+        align: 'center'
+      });
     doc.moveDown(0.2);
 
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Certificate No: ${input.certificateNumber}`);
