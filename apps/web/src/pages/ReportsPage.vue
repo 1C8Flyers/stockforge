@@ -14,6 +14,7 @@
         </div>
         <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.csv?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.csv`)">Meeting Proxy CSV</Button>
         <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.pdf?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.pdf`)">Meeting Proxy PDF</Button>
+        <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-report.pdf?meetingId=${meetingId}`, `meeting-report-${meetingId}.pdf`)">Meeting Report PDF</Button>
       </div>
     </Card>
   </section>

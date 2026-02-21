@@ -75,8 +75,8 @@ export async function meetingRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z
       .object({
-        title: z.string().min(1),
-        text: z.string().min(1),
+        title: z.string().optional(),
+        text: z.string().optional(),
         type: motionTypeSchema.default('STANDARD'),
         officeTitle: z.string().optional(),
         candidates: z.array(z.string().min(1)).optional()
@@ -92,11 +92,23 @@ export async function meetingRoutes(app: FastifyInstance) {
       if (candidates.length < 2) throw app.httpErrors.badRequest('Election motions require at least two candidates.');
     }
 
+    const title = type === MotionType.ELECTION
+      ? `Election: ${officeTitle}`
+      : (body.title || '').trim();
+    const text = type === MotionType.ELECTION
+      ? `Election for ${officeTitle}. Candidates: ${candidates.join(', ')}`
+      : (body.text || '').trim();
+
+    if (type === MotionType.STANDARD) {
+      if (!title) throw app.httpErrors.badRequest('Standard motions require a title.');
+      if (!text) throw app.httpErrors.badRequest('Standard motions require motion text.');
+    }
+
     const motion = await prisma.motion.create({
       data: {
         meetingId: id,
-        title: body.title,
-        text: body.text,
+        title,
+        text,
         type,
         officeTitle: officeTitle || null,
         candidatesJson: type === MotionType.ELECTION ? candidates : undefined

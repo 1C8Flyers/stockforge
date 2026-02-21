@@ -97,7 +97,7 @@
             <option value="STANDARD">Standard motion</option>
             <option value="ELECTION">Election</option>
           </Select>
-          <Input v-model="motionForm.title" label="Motion title" />
+          <Input v-if="motionForm.type === 'STANDARD'" v-model="motionForm.title" label="Motion title" />
           <Input v-if="motionForm.type === 'ELECTION'" v-model="motionForm.officeTitle" label="Office" placeholder="Example: Board Seat A" />
           <label v-if="motionForm.type === 'ELECTION'" class="grid gap-1 text-sm text-slate-700">
             <span>Candidates (one per line)</span>
@@ -107,7 +107,7 @@
               placeholder="Jane Doe&#10;John Smith"
             />
           </label>
-          <label class="grid gap-1 text-sm text-slate-700">
+          <label v-if="motionForm.type === 'STANDARD'" class="grid gap-1 text-sm text-slate-700">
             <span>Motion text</span>
             <textarea
               v-model="motionForm.text"
@@ -274,8 +274,8 @@ const createMotion = async () => {
 
   await api.post(`/meetings/${selectedMeetingId.value}/motions`, {
     type: motionForm.value.type,
-    title: motionForm.value.title,
-    text: motionForm.value.text,
+    title: motionForm.value.type === 'STANDARD' ? motionForm.value.title : undefined,
+    text: motionForm.value.type === 'STANDARD' ? motionForm.value.text : undefined,
     officeTitle: motionForm.value.type === 'ELECTION' ? motionForm.value.officeTitle : undefined,
     candidates: motionForm.value.type === 'ELECTION' ? candidates : undefined
   });

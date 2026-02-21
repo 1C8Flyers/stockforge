@@ -59,3 +59,14 @@
 	- full-width layout behavior (no centered app-width cap)
 	- Shareholders + Transfers converted to responsive table/card + drawer CRUD pattern
 	- Dashboard/Lots/Meetings/Reports/Audit/Admin/Login refined to consistent modern styling
+- Meetings/proxy workflow completed on web page:
+	- attendance toggles on selected meeting
+	- motion creation and vote submission from web UI
+	- proxy verify/revoke controls and represented-share refresh
+- Voting enhancements completed:
+	- per-shareholder ballots for present attendees
+	- automatic share-weighted tallying from active shares
+	- election vote type with office + candidate setup and candidate totals/winner detail
+- Reporting enhancements completed:
+	- PDF layout cleanup (table readability and column tuning)
+	- meeting report PDF export with meeting summary, attendance, proxies, motions, and vote details

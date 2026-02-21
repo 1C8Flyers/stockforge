@@ -128,6 +128,12 @@ Draft transfers support:
 2. Add attendance.
 3. Add/verify proxies.
 4. Record motions and votes.
+
+Vote entry supports two patterns:
+- **Standard motion**: present shareholders vote Yes/No/Abstain.
+- **Election**: choose office + candidates, then each present shareholder selects a candidate.
+
+In both cases, recorded results are share-weighted automatically based on each voter’s active eligible shares.
 5. Use represented-shares values for live decisions.
 
 ---
@@ -143,6 +149,12 @@ Draft transfers support:
 From **Reports** page:
 - **Ownership Report (Cap Table) CSV or PDF**
 - **Meeting Proxy CSV or PDF** (choose meeting first)
+- **Meeting Report PDF** (choose meeting first) with:
+	- meeting summary totals
+	- attendance (present)
+	- proxies and statuses
+	- motions and vote results
+	- detailed ballot/election breakdown
 
 Use these exports for review packets and compliance records.
 
