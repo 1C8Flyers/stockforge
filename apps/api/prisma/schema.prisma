@@ -137,6 +137,7 @@ model Transfer {
   fromOwnerId String?
   toOwnerId   String?
   meetingId   String?
+  transferDate DateTime?
   status      TransferStatus @default(DRAFT)
   postedAt    DateTime?
   notes       String?

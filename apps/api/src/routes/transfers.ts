@@ -10,13 +10,21 @@ const transferSchema = z.object({
   fromOwnerId: z.string().nullable().optional(),
   toOwnerId: z.string().nullable().optional(),
   meetingId: z.string().nullable().optional(),
+  transferDate: z.string().datetime().optional(),
   notes: z.string().optional(),
   lines: z.array(lineSchema).default([])
 });
 
 export async function transferRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
-    return prisma.transfer.findMany({ include: { lines: true }, orderBy: { createdAt: 'desc' } });
+    return prisma.transfer.findMany({
+      include: {
+        lines: { include: { lot: true } },
+        fromOwner: true,
+        toOwner: true
+      },
+      orderBy: [{ transferDate: 'desc' }, { createdAt: 'desc' }]
+    });
   });
 
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
@@ -26,10 +34,11 @@ export async function transferRoutes(app: FastifyInstance) {
         fromOwnerId: body.fromOwnerId ?? null,
         toOwnerId: body.toOwnerId ?? null,
         meetingId: body.meetingId ?? null,
+        transferDate: body.transferDate ? new Date(body.transferDate) : new Date(),
         notes: body.notes,
         lines: { create: body.lines }
       },
-      include: { lines: true }
+      include: { lines: { include: { lot: true } }, fromOwner: true, toOwner: true }
     });
     await audit(prisma, request.userContext.id, 'CREATE', 'Transfer', created.id, body);
     return created;
@@ -37,7 +46,7 @@ export async function transferRoutes(app: FastifyInstance) {
 
   app.get('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const row = await prisma.transfer.findUnique({ where: { id }, include: { lines: true } });
+    const row = await prisma.transfer.findUnique({ where: { id }, include: { lines: { include: { lot: true } }, fromOwner: true, toOwner: true } });
     if (!row) return reply.notFound();
     return row;
   });
@@ -59,10 +68,11 @@ export async function transferRoutes(app: FastifyInstance) {
           fromOwnerId: body.fromOwnerId ?? undefined,
           toOwnerId: body.toOwnerId ?? undefined,
           meetingId: body.meetingId ?? undefined,
+          transferDate: body.transferDate ? new Date(body.transferDate) : undefined,
           notes: body.notes,
           lines: body.lines ? { create: body.lines } : undefined
         },
-        include: { lines: true }
+        include: { lines: { include: { lot: true } }, fromOwner: true, toOwner: true }
       });
     });
 
@@ -119,7 +129,7 @@ export async function transferRoutes(app: FastifyInstance) {
       return tx.transfer.update({
         where: { id },
         data: { status: TransferStatus.POSTED, postedAt: new Date() },
-        include: { lines: true }
+        include: { lines: { include: { lot: true } }, fromOwner: true, toOwner: true }
       });
     }).catch((e: Error) => {
       if (e.message === 'not_found') return null;

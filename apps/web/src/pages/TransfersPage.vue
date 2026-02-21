@@ -6,16 +6,22 @@
     <form v-if="canWrite" @submit.prevent="create" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <select v-model="form.fromOwnerId"><option value="">From owner</option><option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option></select>
       <select v-model="form.toOwnerId"><option value="">To owner</option><option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option></select>
+      <input v-model="form.transferDate" type="date" />
       <select v-model="form.lotId"><option value="">Lot</option><option v-for="l in lots" :value="l.id" :key="l.id">{{ l.id.slice(0,8) }} - {{ l.shares }}</option></select>
       <input v-model.number="form.sharesTaken" type="number" min="1" placeholder="Shares" />
       <button>Create draft</button>
     </form>
 
     <table border="1" cellpadding="6" width="100%">
-      <thead><tr><th>ID</th><th>Status</th><th>From</th><th>To</th><th>Lines</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Date</th><th>Status</th><th>From</th><th>To</th><th>Lines</th><th>Posted</th><th>Actions</th></tr></thead>
       <tbody>
         <tr v-for="t in rows" :key="t.id">
-          <td>{{ t.id.slice(0,8) }}</td><td>{{ t.status }}</td><td>{{ t.fromOwnerId }}</td><td>{{ t.toOwnerId }}</td><td>{{ t.lines.length }}</td>
+          <td>{{ formatDate(t.transferDate || t.createdAt) }}</td>
+          <td>{{ t.status }}</td>
+          <td>{{ displayName(t.fromOwner) || 'Corporation' }}</td>
+          <td>{{ displayName(t.toOwner) || 'Corporation' }}</td>
+          <td>{{ formatLines(t.lines) }}</td>
+          <td>{{ t.postedAt ? formatDate(t.postedAt) : '—' }}</td>
           <td><button @click="postTransfer(t.id)" :disabled="!canPost || t.status==='POSTED'">Post</button></td>
         </tr>
       </tbody>
@@ -31,12 +37,20 @@ import { useAuthStore } from '../stores/auth';
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
 const lots = ref<any[]>([]);
-const form = ref({ fromOwnerId: '', toOwnerId: '', lotId: '', sharesTaken: 1 });
+const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1 });
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
 
-const displayName = (s: any) => s.entityName || `${s.firstName || ''} ${s.lastName || ''}`;
+const displayName = (s: any) => (s ? s.entityName || `${s.firstName || ''} ${s.lastName || ''}`.trim() : '');
+const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString() : '—');
+const formatLines = (lines: any[]) =>
+  lines
+    .map((l) => {
+      const cert = l.lot?.certificateNumber ? `Cert ${l.lot.certificateNumber}` : `Lot ${String(l.lotId).slice(0, 8)}`;
+      return `${l.sharesTaken} from ${cert}`;
+    })
+    .join('; ');
 
 const load = async () => {
   rows.value = (await api.get('/transfers')).data;
@@ -48,9 +62,10 @@ const create = async () => {
   await api.post('/transfers', {
     fromOwnerId: form.value.fromOwnerId || null,
     toOwnerId: form.value.toOwnerId || null,
+    transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
     lines: [{ lotId: form.value.lotId, sharesTaken: form.value.sharesTaken }]
   });
-  form.value = { fromOwnerId: '', toOwnerId: '', lotId: '', sharesTaken: 1 };
+  form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: 1 };
   await load();
 };
 
