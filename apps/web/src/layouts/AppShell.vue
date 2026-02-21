@@ -4,7 +4,10 @@
       <aside class="hidden w-64 border-r border-slate-200 bg-white p-4 md:block">
         <div class="mb-6 flex items-center gap-2">
           <img v-if="appLogoUrl" :src="appLogoUrl" alt="App logo" class="h-9 w-9 rounded object-cover" />
-          <div class="text-lg font-semibold text-slate-900">{{ appDisplayName }}</div>
+          <div>
+            <div class="text-lg font-semibold text-slate-900">{{ appDisplayName }}</div>
+            <div class="text-xs text-slate-500">StockForge</div>
+          </div>
         </div>
         <SideNav />
       </aside>
@@ -38,6 +41,10 @@
         <main class="flex-1 p-4 sm:p-6">
           <slot />
         </main>
+
+        <footer class="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-500 sm:px-6 sm:text-right">
+          © {{ currentYear }} 1C8 Flyers, LLC. All rights reserved.
+        </footer>
       </div>
     </div>
 
@@ -59,6 +66,7 @@ const auth = useAuthStore();
 const mobileNavOpen = ref(false);
 const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
+const currentYear = new Date().getFullYear();
 
 const routeTitleMap: Record<string, string> = {
   '/': 'Dashboard',
