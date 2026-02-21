@@ -123,6 +123,8 @@ function buildCertificatePdf(input: {
         width: qrSize,
         align: 'center'
       });
+    doc.x = doc.page.margins.left;
+    doc.y = doc.page.margins.top + 120;
     doc.moveDown(0.2);
 
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Certificate No: ${input.certificateNumber}`);
