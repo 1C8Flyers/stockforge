@@ -6,6 +6,7 @@ import LotsPage from './pages/LotsPage.vue';
 import TransfersPage from './pages/TransfersPage.vue';
 import MeetingsPage from './pages/MeetingsPage.vue';
 import ReportsPage from './pages/ReportsPage.vue';
+import AuditLogPage from './pages/AuditLogPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -16,7 +17,8 @@ export const router = createRouter({
     { path: '/lots', component: LotsPage },
     { path: '/transfers', component: TransfersPage },
     { path: '/meetings', component: MeetingsPage },
-    { path: '/reports', component: ReportsPage }
+    { path: '/reports', component: ReportsPage },
+    { path: '/audit-log', component: AuditLogPage }
   ]
 });
 

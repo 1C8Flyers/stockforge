@@ -7,6 +7,7 @@
       <router-link to="/transfers">Transfers</router-link>
       <router-link to="/meetings">Meetings/Proxies</router-link>
       <router-link to="/reports">Reports</router-link>
+      <router-link to="/audit-log">Audit Log</router-link>
       <span style="margin-left:auto;color:#555;font-size:12px;">{{ rolesText }}</span>
       <button @click="logout" style="margin-left:auto">Logout</button>
     </nav>
