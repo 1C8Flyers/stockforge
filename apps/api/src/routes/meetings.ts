@@ -38,6 +38,23 @@ export async function meetingRoutes(app: FastifyInstance) {
     return prisma.meeting.findMany({ include: { snapshot: true }, orderBy: { dateTime: 'desc' } });
   });
 
+  app.get(
+    '/pending-summary',
+    { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) },
+    async () => {
+      const [openMotions, pendingProxies] = await Promise.all([
+        prisma.motion.count({ where: { isClosed: false } }),
+        prisma.proxy.count({ where: { status: 'Draft' } })
+      ]);
+
+      return {
+        openMotions,
+        pendingProxies,
+        totalPending: openMotions + pendingProxies
+      };
+    }
+  );
+
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
     const body = z.object({ title: z.string().min(1), dateTime: z.string().datetime() }).parse(request.body);
     const snapshot = await calculateVotingSnapshot(prisma);

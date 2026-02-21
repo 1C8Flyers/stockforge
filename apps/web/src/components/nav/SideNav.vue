@@ -19,6 +19,12 @@
       >
         {{ pendingTransferCount }}
       </span>
+      <span
+        v-else-if="item.path === '/meetings' && pendingMeetingCount > 0"
+        class="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700"
+      >
+        {{ pendingMeetingCount }}
+      </span>
     </RouterLink>
   </nav>
 </template>
@@ -33,6 +39,7 @@ const emit = defineEmits<{ (e: 'navigate'): void }>();
 const route = useRoute();
 const auth = useAuthStore();
 const pendingTransferCount = ref(0);
+const pendingMeetingCount = ref(0);
 let refreshTimer: number | null = null;
 
 const loadPendingTransferCount = async () => {
@@ -42,6 +49,19 @@ const loadPendingTransferCount = async () => {
   } catch {
     pendingTransferCount.value = 0;
   }
+};
+
+const loadPendingMeetingCount = async () => {
+  try {
+    const summary = (await api.get('/meetings/pending-summary')).data as { totalPending?: number };
+    pendingMeetingCount.value = Number(summary?.totalPending || 0);
+  } catch {
+    pendingMeetingCount.value = 0;
+  }
+};
+
+const loadPendingCounts = async () => {
+  await Promise.all([loadPendingTransferCount(), loadPendingMeetingCount()]);
 };
 
 const navItems = computed(() => {
@@ -64,14 +84,14 @@ const navItems = computed(() => {
 });
 
 onMounted(() => {
-  loadPendingTransferCount();
-  refreshTimer = window.setInterval(loadPendingTransferCount, 30000);
+  loadPendingCounts();
+  refreshTimer = window.setInterval(loadPendingCounts, 30000);
 });
 
 watch(
   () => route.path,
   () => {
-    loadPendingTransferCount();
+    loadPendingCounts();
   }
 );
 
