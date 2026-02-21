@@ -171,12 +171,12 @@ export async function reportRoutes(app: FastifyInstance) {
       'Ownership Report (Cap Table)',
       `Generated ${new Date().toLocaleString()}`,
       [
-        { key: 'name', label: 'Name', width: 168 },
-        { key: 'status', label: 'Status', width: 68 },
-        { key: 'activeShares', label: 'Active', width: 48, align: 'right' },
-        { key: 'excludedShares', label: 'Excluded', width: 58, align: 'right' },
-        { key: 'email', label: 'Email', width: 132 },
-        { key: 'phone', label: 'Phone', width: 58 }
+        { key: 'name', label: 'Name', width: 160 },
+        { key: 'status', label: 'Status', width: 60 },
+        { key: 'activeShares', label: 'Active', width: 44, align: 'right' },
+        { key: 'excludedShares', label: 'Excluded', width: 52, align: 'right' },
+        { key: 'email', label: 'Email', width: 126 },
+        { key: 'phone', label: 'Phone', width: 90 }
       ],
       data.map((r) => ({ ...r, email: r.email || '—', phone: r.phone || '—' }))
     );
