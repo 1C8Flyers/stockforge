@@ -18,10 +18,17 @@ type PdfColumn = {
   align?: 'left' | 'right';
 };
 
-function cellText(value: unknown, maxLength = 64) {
-  const text = String(value ?? '');
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+function fitCellText(doc: PDFKit.PDFDocument, value: unknown, width: number) {
+  let text = String(value ?? '');
+  if (!text) return '';
+  if (doc.widthOfString(text) <= width) return text;
+
+  const ellipsis = '…';
+  while (text.length > 1 && doc.widthOfString(`${text}${ellipsis}`) > width) {
+    text = text.slice(0, -1);
+  }
+
+  return `${text}${ellipsis}`;
 }
 
 function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], rows: Record<string, unknown>[]): Promise<Buffer> {
@@ -60,12 +67,17 @@ function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], 
       doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(x, y, tableWidth, rowHeight).stroke();
 
       for (const col of columns) {
-        doc.font('Helvetica').fillColor('#111827').fontSize(9).text(cellText(row[col.key]), x + 6, y + 7, {
-          width: col.width - 12,
-          align: col.align === 'right' ? 'right' : 'left',
-          lineBreak: false,
-          ellipsis: true
-        });
+        doc.font('Helvetica').fillColor('#111827').fontSize(9);
+        const maxTextWidth = col.width - 12;
+        const text = fitCellText(doc, row[col.key], maxTextWidth);
+
+        if (col.align === 'right') {
+          const textWidth = doc.widthOfString(text);
+          const tx = x + col.width - 6 - textWidth;
+          doc.text(text, tx, y + 7, { lineBreak: false });
+        } else {
+          doc.text(text, x + 6, y + 7, { lineBreak: false });
+        }
         x += col.width;
       }
     };
