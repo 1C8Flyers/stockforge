@@ -92,7 +92,7 @@ When a meeting is created, voting totals and majority threshold are snapshotted 
 
 ### Step B — Create lots
 1. Open **Lots**.
-2. Select owner, enter shares, certificate number (optional), and lot status.
+2. Select owner, enter shares, certificate number (optional), notes (optional), and lot status.
 3. Save lot.
 
 If certificate number is blank, the system auto-generates one starting at `1000`.
