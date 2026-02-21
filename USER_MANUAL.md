@@ -81,8 +81,8 @@ Ownership is calculated from **active share lots**, not from a single â€œsharesâ
 
 ### Voting exclusion rules
 Excluded from voting calculations:
-- Shareholders with status `DeceasedOutstanding` or `DeceasedSurrendered`
-- Lots with status `Surrendered`
+- Shareholders with status `Inactive`, `DeceasedOutstanding`, or `DeceasedSurrendered`
+- Lots with status `Treasury` or `Surrendered`
 - Optional: `Disputed` lots (controlled by config toggle)
 
 ### Meeting snapshot
@@ -150,7 +150,7 @@ Use these exports for review packets and compliance records.
 
 ## 10) Dashboard metrics explained
 - **Active voting shares**: currently eligible shares under configured rules
-- **Excluded breakdown**: owner-status exclusions, surrendered lots, disputed (if enabled)
+- **Excluded breakdown**: owner-status exclusions, treasury lots, surrendered lots, disputed (if enabled)
 - **Majority threshold**: `floor(activeVotingShares / 2) + 1`
 - **Top shareholders**: top 10 by active shares
 - **Bloc builder**: selected-holder voting power and percentage

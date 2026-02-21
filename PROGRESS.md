@@ -42,6 +42,9 @@
 	- auto-certificate generation starts at `1000` when blank
 	- lot edit workflow exposed in UI
 	- certificate number and share quantity locked after lot creation (UI + API enforcement)
+	- added `Treasury` lot status
+	- treasury lots excluded from voting calculations and shown separately on dashboard exclusion breakdown
+	- owner-status exclusion now also includes `Inactive`
 - Admin/settings MVP completed:
 	- admin-only user creation
 	- role assignment updates

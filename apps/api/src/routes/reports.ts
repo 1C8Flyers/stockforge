@@ -1,4 +1,4 @@
-import { RoleName } from '@prisma/client';
+import { RoleName, ShareholderStatus } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { stringify } from 'csv-stringify/sync';
 import { z } from 'zod';
@@ -16,9 +16,15 @@ export async function reportRoutes(app: FastifyInstance) {
     const rows = await prisma.shareholder.findMany({ include: { lots: true } });
 
     const data = rows.map((s) => {
-      const activeShares = s.lots
-        .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
-        .reduce((sum, l) => sum + l.shares, 0);
+      const ownerExcluded =
+        s.status === ShareholderStatus.Inactive ||
+        s.status === ShareholderStatus.DeceasedOutstanding ||
+        s.status === ShareholderStatus.DeceasedSurrendered;
+      const activeShares = ownerExcluded
+        ? 0
+        : s.lots
+            .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
+            .reduce((sum, l) => sum + l.shares, 0);
       const excludedShares = s.lots.reduce((sum, l) => sum + l.shares, 0) - activeShares;
       return {
         name: shareholderName(s),

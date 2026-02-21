@@ -60,9 +60,15 @@ export async function shareholderRoutes(app: FastifyInstance) {
     if (!shareholder) return reply.notFound();
 
     const excludeDisputed = await getExcludeDisputed(prisma);
-    const activeShares = shareholder.lots
-      .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
-      .reduce((sum, l) => sum + l.shares, 0);
+    const ownerExcluded =
+      shareholder.status === ShareholderStatus.Inactive ||
+      shareholder.status === ShareholderStatus.DeceasedOutstanding ||
+      shareholder.status === ShareholderStatus.DeceasedSurrendered;
+    const activeShares = ownerExcluded
+      ? 0
+      : shareholder.lots
+          .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
+          .reduce((sum, l) => sum + l.shares, 0);
     const excludedShares = shareholder.lots.reduce((sum, l) => sum + l.shares, 0) - activeShares;
 
     const transfers = await prisma.transfer.findMany({

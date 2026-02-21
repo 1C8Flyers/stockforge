@@ -17,6 +17,7 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
 
   for (const lot of lots) {
     const ownerExcluded =
+      lot.owner.status === ShareholderStatus.Inactive ||
       lot.owner.status === ShareholderStatus.DeceasedOutstanding ||
       lot.owner.status === ShareholderStatus.DeceasedSurrendered;
     const surrenderedExcluded = lot.status === LotStatus.Surrendered;
@@ -42,6 +43,14 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
 
 export async function getShareholderActiveShares(prisma: PrismaClient, shareholderId: string) {
   const excludeDisputed = await getExcludeDisputed(prisma);
+  const shareholder = await prisma.shareholder.findUnique({ where: { id: shareholderId }, select: { status: true } });
+  if (!shareholder) return 0;
+  const ownerExcluded =
+    shareholder.status === ShareholderStatus.Inactive ||
+    shareholder.status === ShareholderStatus.DeceasedOutstanding ||
+    shareholder.status === ShareholderStatus.DeceasedSurrendered;
+  if (ownerExcluded) return 0;
+
   const lots = await prisma.shareLot.findMany({ where: { ownerId: shareholderId } });
   return lots
     .filter((lot) => lot.status === LotStatus.Active || (!excludeDisputed && lot.status === LotStatus.Disputed))

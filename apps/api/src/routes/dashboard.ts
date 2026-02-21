@@ -1,4 +1,4 @@
-import { RoleName } from '@prisma/client';
+import { RoleName, ShareholderStatus } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
@@ -18,9 +18,15 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const shareholders = await prisma.shareholder.findMany({ include: { lots: true } });
     const top = shareholders
       .map((s) => {
-        const activeShares = s.lots
-          .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
-          .reduce((sum, l) => sum + l.shares, 0);
+        const ownerExcluded =
+          s.status === ShareholderStatus.Inactive ||
+          s.status === ShareholderStatus.DeceasedOutstanding ||
+          s.status === ShareholderStatus.DeceasedSurrendered;
+        const activeShares = ownerExcluded
+          ? 0
+          : s.lots
+              .filter((l) => l.status === 'Active' || (!excludeDisputed && l.status === 'Disputed'))
+              .reduce((sum, l) => sum + l.shares, 0);
         return { id: s.id, name: shareholderName(s), activeShares };
       })
       .sort((a, b) => b.activeShares - a.activeShares)

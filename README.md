@@ -57,7 +57,7 @@ Roles enforced server-side:
 - Auth: login, me
 - Config: get/update (Admin-only update)
 - Shareholders: CRUD
-- Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates)
+- Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates), including `Treasury` status
 - Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, human-readable owner/lot data, and special `Retired Shares` null-owner option
 - Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes)
 - Proxies: CRUD with `proxySharesSnapshot` and represented share logic in meeting mode
@@ -89,6 +89,7 @@ Environment/CORS for proxy deployment:
 - Shareholders: phone + street/city/state/zip capture and edit support
 - Lots: certificate number input in UI; if blank, API auto-generates from `1000+`
 - Lots: edit workflow exposed in UI; `certificateNumber` and `shares` lock after creation
+- Voting: `Treasury` lots are excluded from voting; owner exclusion includes `Inactive`, `DeceasedOutstanding`, and `DeceasedSurrendered`
 - Transfers: explicit Retired Shares from/to option, notes field, and draft `Post / Edit / Cancel` actions
 - Admin/Settings: user + role management, password reset, voting config toggle, and system health/migration summary
 
