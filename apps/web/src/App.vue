@@ -8,6 +8,7 @@
       <router-link to="/meetings">Meetings/Proxies</router-link>
       <router-link to="/reports">Reports</router-link>
       <router-link to="/audit-log">Audit Log</router-link>
+      <router-link v-if="isAdmin" to="/admin">Admin</router-link>
       <span style="margin-left:auto;color:#555;font-size:12px;">{{ rolesText }}</span>
       <button @click="logout" style="margin-left:auto">Logout</button>
     </nav>
@@ -25,6 +26,7 @@ import { useAuthStore } from './stores/auth';
 const router = useRouter();
 const auth = useAuthStore();
 const isAuthed = computed(() => auth.isAuthed);
+const isAdmin = computed(() => auth.isAdmin);
 const rolesText = computed(() => (auth.roles.length ? auth.roles.join(', ') : 'No role'));
 
 onMounted(() => {

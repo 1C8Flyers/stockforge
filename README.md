@@ -89,6 +89,7 @@ Environment/CORS for proxy deployment:
 - Shareholders: phone + street/city/state/zip capture and edit support
 - Lots: certificate number input in UI; if blank, API auto-generates from `1000+`
 - Transfers: explicit Corporation from/to options, notes field, and draft `Post / Edit / Cancel` actions
+- Admin/Settings: user + role management, password reset, voting config toggle, and system health/migration summary
 
 ## Troubleshooting
 ### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`

@@ -40,3 +40,10 @@
 - Lot certificate enhancements completed:
 	- certificate number input added to Lots UI
 	- auto-certificate generation starts at `1000` when blank
+- Admin/settings MVP completed:
+	- admin-only user creation
+	- role assignment updates
+	- password reset for users
+	- voting config toggle UI (`excludeDisputedFromVoting`)
+	- system health + migration count visibility
+	- audit log page with human-readable summaries

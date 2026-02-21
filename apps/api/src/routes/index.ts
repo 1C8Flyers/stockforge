@@ -10,6 +10,7 @@ import { dashboardRoutes } from './dashboard.js';
 import { reportRoutes } from './reports.js';
 import { uploadRoutes } from './uploads.js';
 import { auditLogRoutes } from './audit-log.js';
+import { adminRoutes } from './admin.js';
 
 export async function routes(app: FastifyInstance) {
   await app.register(authRoutes, { prefix: '/auth' });
@@ -23,4 +24,5 @@ export async function routes(app: FastifyInstance) {
   await app.register(reportRoutes, { prefix: '/reports' });
   await app.register(uploadRoutes, { prefix: '/uploads' });
   await app.register(auditLogRoutes, { prefix: '/audit-log' });
+  await app.register(adminRoutes, { prefix: '/admin' });
 }

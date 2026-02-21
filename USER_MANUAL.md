@@ -54,6 +54,8 @@ The UI hides/disables actions based on role, and API enforces permissions server
 - **Transfers**: draft and post share transfers
 - **Meetings/Proxies**: meeting setup, attendance, motions/votes, proxy records
 - **Reports**: CSV exports
+- **Audit Log**: read-only operational history with filters and change summaries
+- **Admin** (Admin role only): user/roles, password reset, config, and health
 
 ---
 
@@ -187,3 +189,13 @@ If a lot has no manual certificate number, the auto-generated number is used.
 - Keep Clerk role for data entry and draft prep.
 - Reconcile dashboards with exports before formal meetings.
 - Back up PostgreSQL volume and uploads volume regularly.
+
+---
+
+## 15) Admin / Settings quick guide
+
+Admin-only page includes:
+- **System Health**: DB connectivity and migration count
+- **Voting Configuration**: toggle disputed-lot exclusion from voting
+- **Create User**: email, temporary password, role selection
+- **User Management**: update roles and reset user passwords
