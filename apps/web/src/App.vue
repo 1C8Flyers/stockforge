@@ -15,6 +15,9 @@ const route = useRoute();
 const auth = useAuthStore();
 
 onMounted(() => {
+  if (route.path.toLowerCase().startsWith('/verify/')) {
+    return;
+  }
   if (auth.isAuthed) {
     auth.hydrateUser();
   }

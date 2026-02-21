@@ -16,7 +16,9 @@ api.interceptors.response.use(
     if (error?.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('authUser');
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      const path = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+      const isPublicVerify = path.startsWith('/verify/');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isPublicVerify) {
         window.location.href = '/login';
       }
     }
