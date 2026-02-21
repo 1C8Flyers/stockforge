@@ -18,7 +18,7 @@
           <input type="checkbox" v-model="excludeDisputed" class="h-4 w-4 rounded border-slate-300" />
           Exclude disputed lots from voting
         </label>
-        <Button class="mt-3" @click="saveConfig">Save config</Button>
+        <Button class="mt-3" :loading="isSavingConfig" @click="saveConfig">Save config</Button>
       </Card>
     </div>
 
@@ -32,7 +32,8 @@
         <img v-if="appLogoUrl" :src="appLogoUrl" alt="Logo preview" class="h-10 w-10 rounded object-cover" />
         <div class="text-sm text-slate-700">Preview: <b>{{ appDisplayName || 'StockForge' }}</b></div>
       </div>
-      <Button class="mt-3" @click="saveConfig">Save branding</Button>
+      <Button class="mt-3" :loading="isSavingBranding" @click="saveBranding">Save branding</Button>
+      <p v-if="brandingMessage" class="mt-2 text-sm" :class="brandingMessageTone === 'error' ? 'text-rose-700' : 'text-emerald-700'">{{ brandingMessage }}</p>
     </Card>
 
     <Card>
@@ -104,6 +105,10 @@ const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
 const users = ref<any[]>([]);
 const passwords = ref<Record<string, string>>({});
+const isSavingConfig = ref(false);
+const isSavingBranding = ref(false);
+const brandingMessage = ref('');
+const brandingMessageTone = ref<'success' | 'error'>('success');
 
 const newUser = ref({ email: '', password: '', roles: ['ReadOnly'] as string[] });
 const draftRoles = ref<Record<string, string[]>>({});
@@ -120,19 +125,48 @@ const loadConfig = async () => {
 };
 
 const saveConfig = async () => {
-  await api.put('/config', {
-    excludeDisputedFromVoting: excludeDisputed.value,
-    appDisplayName: appDisplayName.value || 'StockForge',
-    appLogoUrl: appLogoUrl.value || ''
-  });
-  window.dispatchEvent(
-    new CustomEvent('app-branding-updated', {
-      detail: {
-        appDisplayName: appDisplayName.value || 'StockForge',
-        appLogoUrl: appLogoUrl.value || ''
-      }
-    })
-  );
+  isSavingConfig.value = true;
+  try {
+    const data = (await api.put('/config', {
+      excludeDisputedFromVoting: excludeDisputed.value,
+      appDisplayName: appDisplayName.value.trim() || 'StockForge',
+      appLogoUrl: appLogoUrl.value.trim()
+    })).data;
+    excludeDisputed.value = data.excludeDisputedFromVoting === 'true';
+  } finally {
+    isSavingConfig.value = false;
+  }
+};
+
+const saveBranding = async () => {
+  brandingMessage.value = '';
+  isSavingBranding.value = true;
+  try {
+    const data = (await api.put('/config', {
+      appDisplayName: appDisplayName.value.trim() || 'StockForge',
+      appLogoUrl: appLogoUrl.value.trim()
+    })).data as Record<string, string>;
+
+    appDisplayName.value = data.appDisplayName || 'StockForge';
+    appLogoUrl.value = data.appLogoUrl || '';
+
+    window.dispatchEvent(
+      new CustomEvent('app-branding-updated', {
+        detail: {
+          appDisplayName: appDisplayName.value,
+          appLogoUrl: appLogoUrl.value
+        }
+      })
+    );
+
+    brandingMessageTone.value = 'success';
+    brandingMessage.value = 'Branding saved.';
+  } catch (error: any) {
+    brandingMessageTone.value = 'error';
+    brandingMessage.value = error?.response?.data?.message || 'Unable to save branding.';
+  } finally {
+    isSavingBranding.value = false;
+  }
 };
 
 const loadUsers = async () => {
