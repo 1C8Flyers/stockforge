@@ -30,14 +30,22 @@ For NAS environments where ports `3000`/`5173`/`5432` are already in use, use th
 - Run:
    - `docker compose -f docker-compose.nas.yml up -d --build`
 
-Default NAS mappings:
-- Web: `15173 -> 5173`
-- API: `13000 -> 3000`
-- DB: internal only (no host binding)
+NPM network mode (recommended):
+- `web` and `api` are attached to external Docker network `npm_default`
+- no direct host `ports` for `web`/`api` (NPM is the only public entrypoint)
+- `db` remains internal-only
 
-Access URLs on NAS:
-- Web: `http://enterprise.local:15173`
-- API: `http://enterprise.local:13000/api`
+Prerequisite:
+- Ensure Nginx Proxy Manager stack is running and provides Docker network `npm_default`
+
+NPM routing:
+- `/` -> `web:5173`
+- `/api` -> `api:3000`
+
+NAS env expectations for this profile:
+- `VITE_API_BASE_URL=/api`
+- `CORS_ORIGIN=https://<your-public-domain>`
+- `PUBLIC_APP_BASE_URL=https://<your-public-domain>`
 
 Default seeded admin (from .env):
 - Email: `ADMIN_EMAIL`
@@ -119,7 +127,7 @@ Cause: built web bundle still points to localhost API.
 Fixes now included:
 - Web Docker image accepts build arg `VITE_API_BASE_URL`.
 - Compose files pass `VITE_API_BASE_URL` at build time.
-- NAS profile sets API URL to `http://enterprise.local:13000/api`.
+- NAS profile uses relative `/api` for NPM reverse proxy routing.
 
 After updating, rebuild web image:
 - `docker compose -f docker-compose.nas.yml up -d --build web`

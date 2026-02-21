@@ -7,6 +7,8 @@ services:
       POSTGRES_DB: cottonwood
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app_internal
 
   api:
     build:
@@ -16,31 +18,44 @@ services:
       DATABASE_URL: postgresql://cottonwood:cottonwood@db:5432/cottonwood?schema=public
       API_PORT: "3000"
       JWT_SECRET: change_me_super_secret
-      CORS_ORIGIN: http://enterprise.local:15173,http://localhost:15173
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://shares.example.com}
+      PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL:-https://shares.example.com}
       UPLOAD_DIR: /app/uploads
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: ChangeMe123!
       EXCLUDE_DISPUTED_FROM_VOTING: "false"
     depends_on:
       - db
-    ports:
-      - "13000:3000"
+    expose:
+      - "3000"
     volumes:
       - uploads-data:/app/uploads
+    networks:
+      - app_internal
+      - npm_proxy
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_API_BASE_URL: http://enterprise.local:13000/api
+        VITE_API_BASE_URL: /api
     environment:
-      VITE_API_BASE_URL: http://enterprise.local:13000/api
+      VITE_API_BASE_URL: /api
     depends_on:
       - api
-    ports:
-      - "15173:5173"
+    expose:
+      - "5173"
+    networks:
+      - npm_proxy
 
 volumes:
   postgres-data:
   uploads-data:
+
+networks:
+  app_internal:
+    driver: bridge
+  npm_proxy:
+    external: true
+    name: npm_default
