@@ -31,9 +31,9 @@ For NAS environments where ports `3000`/`5173`/`5432` are already in use, use th
    - `docker compose -f docker-compose.nas.yml up -d --build`
 
 NPM network mode (recommended):
-- `web` and `api` are attached to external Docker network `npm_default`
+- `web`, `api`, and `db` are attached to external Docker network `npm_default`
 - no direct host `ports` for `web`/`api` (NPM is the only public entrypoint)
-- `db` remains internal-only
+- `db` still has no host port binding
 
 Prerequisite:
 - Ensure Nginx Proxy Manager stack is running and provides Docker network `npm_default`

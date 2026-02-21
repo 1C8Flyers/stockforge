@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - app_internal
+      - npm_proxy
 
   api:
     build:
@@ -37,7 +37,6 @@ services:
     volumes:
       - uploads-data:/app/uploads
     networks:
-      - app_internal
       - npm_proxy
 
   web:
@@ -60,8 +59,6 @@ volumes:
   uploads-data:
 
 networks:
-  app_internal:
-    driver: bridge
   npm_proxy:
     external: true
     name: npm_default
