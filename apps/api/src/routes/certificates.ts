@@ -60,6 +60,10 @@ function appBaseUrl(request: { protocol: string; headers: Record<string, unknown
   return publicBaseUrl(request);
 }
 
+function normalizeBaseUrl(url: string) {
+  return url.trim().replace(/\/+$/, '');
+}
+
 function incorporationPhrase(state: string) {
   const normalized = state.trim();
   if (!normalized) return '';
@@ -267,15 +271,17 @@ export async function certificateRoutes(app: FastifyInstance) {
       });
     }
 
-    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState'] } } });
+    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl'] } } });
     const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
     const appIncorporationState = cfg.find((c) => c.key === 'appIncorporationState')?.value || '';
+    const appPublicBaseUrl = cfg.find((c) => c.key === 'appPublicBaseUrl')?.value || '';
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
     const printLabel = mode === 'reprint' ? 'REPRINT' : 'ORIGINAL';
     const verificationId = verificationIdForLot(lot.id);
     const signature = signVerificationId(verificationId);
-    const verificationUrl = `${appBaseUrl(request)}/verify/certificate/${encodeURIComponent(verificationId)}?sig=${signature}`;
+    const baseForLinks = appPublicBaseUrl.trim() ? normalizeBaseUrl(appPublicBaseUrl) : normalizeBaseUrl(appBaseUrl(request));
+    const verificationUrl = `${baseForLinks}/verify/certificate/${encodeURIComponent(verificationId)}?sig=${signature}`;
     const verificationQrPng = await QRCode.toBuffer(verificationUrl, { width: 256, margin: 1 });
     const pdf = await buildCertificatePdf({
       appName,

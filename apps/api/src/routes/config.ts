@@ -17,7 +17,8 @@ export async function configRoutes(app: FastifyInstance) {
         excludeDisputedFromVoting: z.boolean().optional(),
         appDisplayName: z.string().trim().min(1).max(80).optional(),
         appLogoUrl: z.string().trim().max(500).optional(),
-        appIncorporationState: z.string().trim().max(80).optional()
+        appIncorporationState: z.string().trim().max(80).optional(),
+        appPublicBaseUrl: z.string().trim().max(500).optional()
       })
       .parse(request.body);
 
@@ -25,7 +26,8 @@ export async function configRoutes(app: FastifyInstance) {
       typeof body.excludeDisputedFromVoting === 'undefined' &&
       typeof body.appDisplayName === 'undefined' &&
       typeof body.appLogoUrl === 'undefined' &&
-      typeof body.appIncorporationState === 'undefined'
+      typeof body.appIncorporationState === 'undefined' &&
+      typeof body.appPublicBaseUrl === 'undefined'
     ) {
       return request.server.httpErrors.badRequest('No config fields provided');
     }
@@ -74,6 +76,19 @@ export async function configRoutes(app: FastifyInstance) {
         }
       });
       updates.push('appIncorporationState');
+    }
+
+    if (typeof body.appPublicBaseUrl === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'appPublicBaseUrl' },
+        update: { value: body.appPublicBaseUrl, updatedById: request.userContext.id },
+        create: {
+          key: 'appPublicBaseUrl',
+          value: body.appPublicBaseUrl,
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('appPublicBaseUrl');
     }
 
     const rows = await prisma.appConfig.findMany();

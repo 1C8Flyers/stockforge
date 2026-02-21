@@ -93,3 +93,4 @@
 	  - QR code on certificate links to public verification page
 	  - signed verification query parameter validated by API (tamper check)
 	  - public web route added for certificate verification without login
+	  - Admin setting added for `Public app URL` to control certificate verification link base

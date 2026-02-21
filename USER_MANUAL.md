@@ -240,6 +240,7 @@ Admin-only page includes:
 - **System Health**: DB connectivity and migration count
 - **Voting Configuration**: toggle disputed-lot exclusion from voting
 - **Branding**: set app display name and logo URL for sidebar/mobile navigation header branding, with save confirmation/error feedback
+	- includes **Public app URL** used as the base for certificate verification links/QR codes
 - **Create User**: email, temporary password, role selection
 - **User Management**: update roles and reset user passwords
 

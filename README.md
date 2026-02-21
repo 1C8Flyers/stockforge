@@ -59,7 +59,7 @@ Roles enforced server-side:
 
 ## Implemented API areas
 - Auth: login, me
-- Config: get/update (Admin-only update) for voting + app branding (`appDisplayName`, `appLogoUrl`)
+- Config: get/update (Admin-only update) for voting + app branding (`appDisplayName`, `appLogoUrl`, `appIncorporationState`, `appPublicBaseUrl`)
 - Shareholders: CRUD
 - Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates), including `Treasury` status
 - Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, human-readable owner/lot data, and special `Retired Shares` null-owner option
@@ -109,6 +109,7 @@ Environment/CORS for proxy deployment:
 - Branding: Admin can configure `State of incorporation`, rendered under company name on stock certificates
 - Certificates: each printed certificate includes a verification ID and QR link to public verification page
 - Certificates: verification endpoint checks signed query parameter to detect tampered verification links
+- Certificates: verification link base URL source priority is `appPublicBaseUrl` (Admin setting), then `PUBLIC_APP_BASE_URL`, then request-derived host/origin fallback
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

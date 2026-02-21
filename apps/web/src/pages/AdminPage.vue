@@ -24,10 +24,11 @@
 
     <Card>
       <h3 class="font-semibold text-slate-900">Branding</h3>
-      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+      <div class="mt-3 grid gap-3 sm:grid-cols-4">
         <Input v-model="appDisplayName" label="App name" placeholder="StockForge" />
         <Input v-model="appLogoUrl" label="Logo URL" placeholder="https://..." />
         <Input v-model="appIncorporationState" label="State of incorporation" placeholder="Wyoming" />
+        <Input v-model="appPublicBaseUrl" label="Public app URL" placeholder="https://enterprise.local:15173" />
       </div>
       <div class="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <img v-if="appLogoUrl" :src="appLogoUrl" alt="Logo preview" class="h-10 w-10 rounded object-cover" />
@@ -108,6 +109,7 @@ const excludeDisputed = ref(false);
 const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
 const appIncorporationState = ref('');
+const appPublicBaseUrl = ref('');
 const users = ref<any[]>([]);
 const passwords = ref<Record<string, string>>({});
 const isSavingConfig = ref(false);
@@ -128,6 +130,7 @@ const loadConfig = async () => {
   appDisplayName.value = cfg.appDisplayName || 'StockForge';
   appLogoUrl.value = cfg.appLogoUrl || '';
   appIncorporationState.value = cfg.appIncorporationState || '';
+  appPublicBaseUrl.value = cfg.appPublicBaseUrl || '';
 };
 
 const saveConfig = async () => {
@@ -137,7 +140,8 @@ const saveConfig = async () => {
       excludeDisputedFromVoting: excludeDisputed.value,
       appDisplayName: appDisplayName.value.trim() || 'StockForge',
       appLogoUrl: appLogoUrl.value.trim(),
-      appIncorporationState: appIncorporationState.value.trim()
+      appIncorporationState: appIncorporationState.value.trim(),
+      appPublicBaseUrl: appPublicBaseUrl.value.trim()
     })).data;
     excludeDisputed.value = data.excludeDisputedFromVoting === 'true';
   } finally {
@@ -152,12 +156,14 @@ const saveBranding = async () => {
     const data = (await api.put('/config', {
       appDisplayName: appDisplayName.value.trim() || 'StockForge',
       appLogoUrl: appLogoUrl.value.trim(),
-      appIncorporationState: appIncorporationState.value.trim()
+      appIncorporationState: appIncorporationState.value.trim(),
+      appPublicBaseUrl: appPublicBaseUrl.value.trim()
     })).data as Record<string, string>;
 
     appDisplayName.value = data.appDisplayName || 'StockForge';
     appLogoUrl.value = data.appLogoUrl || '';
     appIncorporationState.value = data.appIncorporationState || '';
+    appPublicBaseUrl.value = data.appPublicBaseUrl || '';
 
     window.dispatchEvent(
       new CustomEvent('app-branding-updated', {
