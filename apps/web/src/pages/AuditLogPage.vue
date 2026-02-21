@@ -18,7 +18,7 @@
           <th>User</th>
           <th>Action</th>
           <th>Entity</th>
-          <th>Entity ID</th>
+          <th>Record</th>
           <th>Details</th>
         </tr>
       </thead>
@@ -26,12 +26,13 @@
         <tr v-for="row in rows" :key="row.id">
           <td>{{ new Date(row.createdAt).toLocaleString() }}</td>
           <td>{{ row.user?.email || row.userId }}</td>
-          <td>{{ row.action }}</td>
-          <td>{{ row.entityType }}</td>
-          <td>{{ row.entityId }}</td>
+          <td>{{ actionLabel(row.action) }}</td>
+          <td>{{ entityLabel(row.entityType) }}</td>
+          <td>{{ shortId(row.entityId) }}</td>
           <td>
+            <div>{{ summarizeDiff(row.diffJson) }}</div>
             <details>
-              <summary>View</summary>
+              <summary>View raw</summary>
               <pre style="white-space:pre-wrap;max-width:600px;overflow:auto;">{{ pretty(row.diffJson) }}</pre>
             </details>
           </td>
@@ -50,6 +51,29 @@ const filters = ref({ entityType: '', action: '', userId: '', from: '', to: '', 
 
 const toIsoOrUndefined = (v: string) => (v ? new Date(v).toISOString() : undefined);
 const pretty = (v: unknown) => JSON.stringify(v ?? {}, null, 2);
+const shortId = (id: string) => (id ? `${id.slice(0, 8)}…` : '—');
+const actionLabel = (action: string) => {
+  const map: Record<string, string> = {
+    CREATE: 'Created',
+    UPDATE: 'Updated',
+    DELETE: 'Deleted',
+    POST: 'Posted'
+  };
+  return map[action] || action;
+};
+const entityLabel = (entityType: string) => entityType.replace(/([a-z])([A-Z])/g, '$1 $2');
+const summarizeDiff = (diff: any) => {
+  if (!diff) return 'No details';
+  if (typeof diff !== 'object') return String(diff);
+
+  if (diff.before && diff.after && typeof diff.before === 'object' && typeof diff.after === 'object') {
+    const changed = Object.keys(diff.after).filter((k) => JSON.stringify(diff.before[k]) !== JSON.stringify(diff.after[k]));
+    return changed.length ? `Changed: ${changed.join(', ')}` : 'Updated record';
+  }
+
+  const keys = Object.keys(diff);
+  return keys.length ? `Fields: ${keys.join(', ')}` : 'No details';
+};
 
 const load = async () => {
   const params: Record<string, string | number> = { limit: filters.value.limit || 100 };
