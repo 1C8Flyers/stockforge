@@ -7,14 +7,15 @@
         <option disabled value="">Owner</option>
         <option v-for="s in shareholders" :value="s.id" :key="s.id">{{ s.entityName || `${s.firstName || ''} ${s.lastName || ''}` }}</option>
       </select>
-      <input v-model="form.shares" type="number" min="1" placeholder="Share Quantity" />
-      <input v-model="form.certificateNumber" placeholder="Certificate number" />
+      <input v-model="form.shares" type="number" min="1" placeholder="Share Quantity" :disabled="!!editingId" />
+      <input v-model="form.certificateNumber" placeholder="Certificate number" :disabled="!!editingId" />
       <input v-model="form.source" placeholder="Source" />
       <input v-model="form.notes" placeholder="Notes" />
       <select v-model="form.status"><option>Active</option><option>Disputed</option><option>Surrendered</option></select>
       <button>{{ editingId ? 'Save lot' : 'Add lot' }}</button>
       <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
     </form>
+    <p v-if="canWrite && editingId" style="margin-top:-4px;color:#666;">Certificate number and share quantity are locked after lot creation.</p>
 
     <table border="1" cellpadding="6" width="100%">
       <thead><tr><th>Owner</th><th>Certificate</th><th>Shares</th><th>Status</th><th>Source</th><th>Notes</th><th>Actions</th></tr></thead>
@@ -46,17 +47,22 @@ const clearForm = () => {
 };
 
 const save = async () => {
-  const payload = {
-    ...form.value,
-    shares: Number(form.value.shares),
-    certificateNumber: form.value.certificateNumber || undefined,
-    source: form.value.source || undefined,
-    notes: form.value.notes || undefined
-  };
-
   if (editingId.value) {
+    const payload = {
+      ownerId: form.value.ownerId,
+      source: form.value.source || undefined,
+      notes: form.value.notes || undefined,
+      status: form.value.status
+    };
     await api.put(`/lots/${editingId.value}`, payload);
   } else {
+    const payload = {
+      ...form.value,
+      shares: Number(form.value.shares),
+      certificateNumber: form.value.certificateNumber || undefined,
+      source: form.value.source || undefined,
+      notes: form.value.notes || undefined
+    };
     await api.post('/lots', payload);
   }
 

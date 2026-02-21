@@ -16,6 +16,14 @@ const createSchema = z.object({
   notes: z.string().optional()
 });
 
+const updateSchema = z.object({
+  ownerId: z.string().optional(),
+  status: z.nativeEnum(LotStatus).optional(),
+  acquiredDate: z.string().datetime().optional(),
+  source: z.string().optional(),
+  notes: z.string().optional()
+});
+
 export async function lotRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
     return prisma.shareLot.findMany({ include: { owner: true }, orderBy: { createdAt: 'desc' } });
@@ -37,19 +45,10 @@ export async function lotRoutes(app: FastifyInstance) {
 
   app.put('/:id', { preHandler: requireRoles(...canWriteRoles) }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const body = createSchema.partial().parse(request.body);
+    const body = updateSchema.parse(request.body);
 
     const existing = await prisma.shareLot.findUnique({ where: { id } });
     if (!existing) return reply.notFound();
-
-    if (typeof body.shares === 'number' && body.shares !== existing.shares) {
-      const postedUsage = await prisma.transferLine.count({
-        where: { lotId: id, transfer: { status: 'POSTED' } }
-      });
-      if (postedUsage > 0) {
-        return reply.badRequest('Cannot edit lot shares after posted transfer usage');
-      }
-    }
 
     const updated = await prisma.shareLot.update({
       where: { id },
