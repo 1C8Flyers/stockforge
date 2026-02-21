@@ -144,7 +144,7 @@
                 <li v-for="row in electionTotals(m)" :key="row.candidate">{{ row.candidate }}: {{ row.shares }} shares</li>
               </ul>
             </div>
-            <form v-if="canPost" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
+            <form v-if="canPost && !isVotePanelCollapsed(m.id)" class="mt-3 grid gap-2" @submit.prevent="recordVote(m.id)">
               <div v-if="presentVoters.length === 0" class="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
                 No present shareholders to vote.
               </div>
@@ -163,9 +163,19 @@
                 </Select>
               </div>
               <div class="flex items-end">
-                <Button type="submit" variant="secondary" :disabled="presentVoters.length === 0">Record shareholder votes</Button>
+                <Button type="submit" variant="secondary" :disabled="presentVoters.length === 0" :loading="recordingMotionId === m.id">
+                  Record shareholder votes
+                </Button>
               </div>
+              <p v-if="recordedMotionId === m.id" class="text-xs text-emerald-700">Votes recorded successfully.</p>
             </form>
+            <div v-else-if="canPost" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+              <p class="font-medium">Votes recorded.</p>
+              <p class="mt-1">{{ collapsedSummaryText(m) }}</p>
+              <div class="mt-2">
+                <Button size="sm" variant="secondary" @click="openVotePanel(m.id)">Reopen voting</Button>
+              </div>
+            </div>
           </li>
           <li v-if="selectedMotions.length === 0" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">
             No motions yet.
@@ -195,6 +205,9 @@ const meetingForm = ref({ title: '', dateTime: '' });
 const proxyForm = ref({ grantorId: '', proxyHolderName: '', proxyHolderShareholderId: '' });
 const motionForm = ref({ type: 'STANDARD' as 'STANDARD' | 'ELECTION', title: '', text: '', officeTitle: '', candidatesText: '' });
 const voteForms = ref<Record<string, Record<string, string>>>({});
+const recordingMotionId = ref('');
+const recordedMotionId = ref('');
+const collapsedVotePanels = ref<Record<string, boolean>>({});
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
@@ -304,34 +317,62 @@ const voteForm = (motionId: string) => {
 };
 
 const recordVote = async (motionId: string) => {
-  const form = voteForm(motionId);
-  const motion = selectedMotions.value.find((m: any) => m.id === motionId);
-  if (!motion) return;
+  recordingMotionId.value = motionId;
+  recordedMotionId.value = '';
 
-  if (motionType(motion) === 'ELECTION') {
-    const ballots = presentVoters.value
-      .map((v) => ({ shareholderId: v.shareholderId, vote: form[v.shareholderId] || '' }))
-      .filter((b) => b.vote.startsWith('candidate:'))
-      .map((b) => ({ shareholderId: b.shareholderId, candidate: b.vote.replace(/^candidate:/, '') }))
-      .filter((b) => b.candidate);
+  try {
+    const form = voteForm(motionId);
+    const motion = selectedMotions.value.find((m: any) => m.id === motionId);
+    if (!motion) return;
 
-    if (ballots.length === 0) return;
-    await api.post(`/meetings/motions/${motionId}/votes`, { ballots });
-  } else {
-    const ballots = presentVoters.value
-      .map((v) => ({ shareholderId: v.shareholderId, choice: form[v.shareholderId] }))
-      .filter((b): b is { shareholderId: string; choice: 'yes' | 'no' | 'abstain' } => b.choice === 'yes' || b.choice === 'no' || b.choice === 'abstain');
+    if (motionType(motion) === 'ELECTION') {
+      const ballots = presentVoters.value
+        .map((v) => ({ shareholderId: v.shareholderId, vote: form[v.shareholderId] || '' }))
+        .filter((b) => b.vote.startsWith('candidate:'))
+        .map((b) => ({ shareholderId: b.shareholderId, candidate: b.vote.replace(/^candidate:/, '') }))
+        .filter((b) => b.candidate);
 
-    if (ballots.length === 0) return;
-    await api.post(`/meetings/motions/${motionId}/votes`, { ballots });
+      if (ballots.length === 0) return;
+      await api.post(`/meetings/motions/${motionId}/votes`, { ballots });
+    } else {
+      const ballots = presentVoters.value
+        .map((v) => ({ shareholderId: v.shareholderId, choice: form[v.shareholderId] }))
+        .filter((b): b is { shareholderId: string; choice: 'yes' | 'no' | 'abstain' } => b.choice === 'yes' || b.choice === 'no' || b.choice === 'abstain');
+
+      if (ballots.length === 0) return;
+      await api.post(`/meetings/motions/${motionId}/votes`, { ballots });
+    }
+
+    await refreshSelectedMode();
+    recordedMotionId.value = motionId;
+    collapsedVotePanels.value[motionId] = true;
+    window.setTimeout(() => {
+      if (recordedMotionId.value === motionId) recordedMotionId.value = '';
+    }, 2500);
+  } finally {
+    recordingMotionId.value = '';
   }
-
-  await refreshSelectedMode();
 };
 
 const latestVote = (motion: any) => {
   if (!motion?.votes?.length) return null;
   return motion.votes[motion.votes.length - 1];
+};
+
+const isVotePanelCollapsed = (motionId: string) => Boolean(collapsedVotePanels.value[motionId]);
+
+const openVotePanel = (motionId: string) => {
+  collapsedVotePanels.value[motionId] = false;
+};
+
+const collapsedSummaryText = (motion: any) => {
+  const v = latestVote(motion);
+  if (!v) return 'No vote summary available.';
+  if (motionType(motion) === 'ELECTION') {
+    const totals = electionTotals(motion).map((t) => `${t.candidate}: ${t.shares}`).join(' · ');
+    return totals || `Result: ${v.result}`;
+  }
+  return `Yes ${v.yesShares} · No ${v.noShares} · Abstain ${v.abstainShares} · ${v.result}`;
 };
 
 const proxyForGrantor = (shareholderId: string) => {
