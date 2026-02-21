@@ -6,12 +6,12 @@
     <form v-if="canWrite" @submit.prevent="save" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <select v-model="form.fromOwnerId">
         <option disabled value="">From owner</option>
-        <option :value="CORPORATION_VALUE">Corporation</option>
+        <option :value="RETIRED_VALUE">Retired Shares</option>
         <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
       </select>
       <select v-model="form.toOwnerId">
         <option disabled value="">To owner</option>
-        <option :value="CORPORATION_VALUE">Corporation</option>
+        <option :value="RETIRED_VALUE">Retired Shares</option>
         <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
       </select>
       <input v-model="form.transferDate" type="date" />
@@ -31,8 +31,8 @@
         <tr v-for="t in rows" :key="t.id">
           <td>{{ formatDate(t.transferDate || t.createdAt) }}</td>
           <td>{{ t.status }}</td>
-          <td>{{ displayName(t.fromOwner) || 'Corporation' }}</td>
-          <td>{{ displayName(t.toOwner) || 'Corporation' }}</td>
+          <td>{{ displayName(t.fromOwner) || 'Retired Shares' }}</td>
+          <td>{{ displayName(t.toOwner) || 'Retired Shares' }}</td>
           <td>{{ formatLines(t.lines) }}</td>
           <td>{{ t.notes || '—' }}</td>
           <td>{{ t.postedAt ? formatDate(t.postedAt) : '—' }}</td>
@@ -55,7 +55,7 @@ import { useAuthStore } from '../stores/auth';
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
 const lots = ref<any[]>([]);
-const CORPORATION_VALUE = '__CORPORATION__';
+const RETIRED_VALUE = '__RETIRED_SHARES__';
 const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' });
 const editingId = ref<string | null>(null);
 const auth = useAuthStore();
@@ -63,7 +63,7 @@ const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
 const filteredLots = computed(() => {
   const from = form.value.fromOwnerId;
-  if (!from || from === CORPORATION_VALUE) return [];
+  if (!from || from === RETIRED_VALUE) return [];
   return lots.value.filter((l) => l.ownerId === from && l.shares > 0 && (l.status === 'Active' || l.status === 'Disputed'));
 });
 
@@ -97,8 +97,8 @@ const clearForm = () => {
 
 const save = async () => {
   const payload = {
-    fromOwnerId: !form.value.fromOwnerId || form.value.fromOwnerId === CORPORATION_VALUE ? null : form.value.fromOwnerId,
-    toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === CORPORATION_VALUE ? null : form.value.toOwnerId,
+    fromOwnerId: !form.value.fromOwnerId || form.value.fromOwnerId === RETIRED_VALUE ? null : form.value.fromOwnerId,
+    toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === RETIRED_VALUE ? null : form.value.toOwnerId,
     transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
     notes: form.value.notes || undefined,
     lines: [{ lotId: form.value.lotId, sharesTaken: Number(form.value.sharesTaken) }]
@@ -119,8 +119,8 @@ const editDraft = (t: any) => {
   const firstLine = t.lines?.[0];
   editingId.value = t.id;
   form.value = {
-    fromOwnerId: t.fromOwnerId || CORPORATION_VALUE,
-    toOwnerId: t.toOwnerId || CORPORATION_VALUE,
+    fromOwnerId: t.fromOwnerId || RETIRED_VALUE,
+    toOwnerId: t.toOwnerId || RETIRED_VALUE,
     transferDate: t.transferDate ? new Date(t.transferDate).toISOString().slice(0, 10) : '',
     lotId: firstLine?.lotId || '',
     sharesTaken: firstLine?.sharesTaken ? String(firstLine.sharesTaken) : '',

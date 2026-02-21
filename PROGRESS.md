@@ -34,12 +34,14 @@
 - Transfer enhancements completed:
 	- capture and display transfer date
 	- human-readable transfer rows (owner names, cert/lot references, posted date)
-	- explicit Corporation from/to options
+	- explicit Retired Shares from/to option (null-owner transfer bucket)
 	- draft actions now include Post / Edit / Cancel
 	- notes captured on transfer creation
 - Lot certificate enhancements completed:
 	- certificate number input added to Lots UI
 	- auto-certificate generation starts at `1000` when blank
+	- lot edit workflow exposed in UI
+	- certificate number and share quantity locked after lot creation (UI + API enforcement)
 - Admin/settings MVP completed:
 	- admin-only user creation
 	- role assignment updates

@@ -68,6 +68,12 @@ Ownership is calculated from **active share lots**, not from a single “shares�
 - You can enter a certificate number manually when creating a lot.
 - If left blank, the system auto-generates one.
 - Auto-generated numbers start at `1000` and increment upward.
+- After lot creation, certificate number is locked (not editable).
+
+### Lot share quantity
+- Share quantity is set at lot creation.
+- After lot creation, share quantity is locked (not editable).
+- Use transfers to move/reallocate shares instead of editing lot quantity directly.
 
 ### Transfer immutability
 - Draft transfers can be edited/deleted.
@@ -99,9 +105,11 @@ When a meeting is created, voting totals and majority threshold are snapshotted 
 
 If certificate number is blank, the system auto-generates one starting at `1000`.
 
+In lot edit mode, allowed updates are metadata fields (for example owner, status, source, notes). Certificate number and shares remain immutable.
+
 ### Step C — Draft transfer
 1. Open **Transfers**.
-2. Select from-owner and to-owner (including **Corporation** option for either side).
+2. Select from-owner and to-owner (including **Retired Shares** option for either side).
 3. Set transfer date, source lot, shares, and notes.
 4. Save transfer as draft.
 
@@ -180,6 +188,11 @@ The transfer table now shows:
 - notes
 
 If a lot has no manual certificate number, the auto-generated number is used.
+
+### Initial data load with no existing shareholder lots
+If you are loading data for the first time, create a corporation/treasury shareholder record and issue initial lots there. Then transfer from that record to individual shareholders as needed.
+
+Use **Retired Shares** only when shares should move to/from the null-owner retired bucket.
 
 ---
 
