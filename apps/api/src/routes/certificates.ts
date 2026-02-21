@@ -27,7 +27,7 @@ function buildCertificatePdf(input: {
   lotId: string;
 }): Promise<Buffer> {
   return new Promise((resolve) => {
-    const doc = new PDFDocument({ size: 'LETTER', margin: 54 });
+    const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 54 });
     const chunks: Buffer[] = [];
 
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
