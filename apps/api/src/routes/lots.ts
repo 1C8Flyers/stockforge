@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
 import { canWriteRoles, requireRoles } from '../lib/auth.js';
+import { nextAutoCertificateNumber } from '../lib/certificates.js';
 
 const createSchema = z.object({
   ownerId: z.string(),
@@ -22,9 +23,11 @@ export async function lotRoutes(app: FastifyInstance) {
 
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
     const body = createSchema.parse(request.body);
+    const certificateNumber = body.certificateNumber?.trim() || (await nextAutoCertificateNumber(prisma));
     const lot = await prisma.shareLot.create({
       data: {
         ...body,
+        certificateNumber,
         acquiredDate: body.acquiredDate ? new Date(body.acquiredDate) : null
       }
     });

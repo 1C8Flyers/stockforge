@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
 import { canPostRoles, canWriteRoles, requireRoles } from '../lib/auth.js';
+import { nextAutoCertificateNumber } from '../lib/certificates.js';
 
 const lineSchema = z.object({ lotId: z.string(), sharesTaken: z.number().int().positive() });
 const transferSchema = z.object({
@@ -114,11 +115,13 @@ export async function transferRoutes(app: FastifyInstance) {
         });
 
         if (transfer.toOwnerId) {
+          const certificateNumber = await nextAutoCertificateNumber(tx);
           await tx.shareLot.create({
             data: {
               ownerId: transfer.toOwnerId,
               shares: line.sharesTaken,
               status: LotStatus.Active,
+              certificateNumber,
               source: `Transfer ${transfer.id}`,
               notes: transfer.notes
             }
