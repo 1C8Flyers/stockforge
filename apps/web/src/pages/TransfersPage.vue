@@ -1,49 +1,164 @@
 <template>
-  <section>
-    <h2>Transfers</h2>
-    <p v-if="!canWrite" style="color:#666;">Read-only mode: transfer drafting is disabled.</p>
-    <p v-else-if="!canPost" style="color:#666;">Clerk mode: you can draft transfers but cannot post them.</p>
-    <form v-if="canWrite" @submit.prevent="save" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <select v-model="form.fromOwnerId">
-        <option disabled value="">From owner</option>
-        <option :value="RETIRED_VALUE">Retired Shares</option>
-        <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
-      </select>
-      <select v-model="form.toOwnerId">
-        <option disabled value="">To owner</option>
-        <option :value="RETIRED_VALUE">Retired Shares</option>
-        <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
-      </select>
-      <input v-model="form.transferDate" type="date" />
-      <select v-model="form.lotId">
-        <option value="">Lot</option>
-        <option v-for="l in filteredLots" :value="l.id" :key="l.id">{{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0,8)}` }} - {{ l.shares }}</option>
-      </select>
-      <input v-model="form.sharesTaken" type="number" min="1" placeholder="Share Quantity" />
-      <input v-model="form.notes" placeholder="Notes" />
-      <button>{{ editingId ? 'Save draft' : 'Create draft' }}</button>
-      <button v-if="editingId" type="button" @click="clearForm">Cancel edit</button>
-    </form>
+  <section class="space-y-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-900">Transfers</h2>
+        <p class="text-sm text-slate-600">Create draft transfers and post them when ready.</p>
+      </div>
+      <Button v-if="canWrite" @click="openCreateDrawer">Create draft</Button>
+    </div>
 
-    <table border="1" cellpadding="6" width="100%">
-      <thead><tr><th>Date</th><th>Status</th><th>From</th><th>To</th><th>Lines</th><th>Notes</th><th>Posted</th><th>Actions</th></tr></thead>
-      <tbody>
-        <tr v-for="t in rows" :key="t.id">
-          <td>{{ formatDate(t.transferDate || t.createdAt) }}</td>
-          <td>{{ t.status }}</td>
-          <td>{{ displayName(t.fromOwner) || 'Retired Shares' }}</td>
-          <td>{{ displayName(t.toOwner) || 'Retired Shares' }}</td>
-          <td>{{ formatLines(t.lines) }}</td>
-          <td>{{ t.notes || '—' }}</td>
-          <td>{{ t.postedAt ? formatDate(t.postedAt) : '—' }}</td>
-          <td>
-            <button @click="postTransfer(t.id)" :disabled="!canPost || t.status==='POSTED'">Post</button>
-            <button v-if="canWrite" @click="editDraft(t)" :disabled="t.status==='POSTED'">Edit</button>
-            <button v-if="canWrite" @click="cancelDraft(t.id)" :disabled="t.status==='POSTED'">Cancel</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+      Read-only mode: transfer drafting is disabled.
+    </p>
+    <p v-else-if="!canPost" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+      Clerk mode: you can draft transfers but cannot post them.
+    </p>
+
+    <Card>
+      <Input v-model="search" label="Search" placeholder="From, to, status, notes..." />
+    </Card>
+
+    <LoadingState v-if="isLoading" label="Loading transfers..." />
+    <EmptyState v-else-if="filteredRows.length === 0" title="No transfers found" description="Create a transfer draft to get started." />
+
+    <Card v-else class="p-0">
+      <div class="hidden overflow-x-auto md:block">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Date</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">From</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">To</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Lines</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Posted</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            <tr v-for="t in filteredRows" :key="t.id">
+              <td class="px-4 py-3 text-sm text-slate-600">{{ formatDate(t.transferDate || t.createdAt) }}</td>
+              <td class="px-4 py-3"><Badge :tone="t.status === 'POSTED' ? 'success' : 'warning'">{{ t.status }}</Badge></td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ displayName(t.fromOwner) || 'Retired Shares' }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ displayName(t.toOwner) || 'Retired Shares' }}</td>
+              <td class="px-4 py-3 text-sm text-slate-600">{{ formatLines(t.lines) }}</td>
+              <td class="px-4 py-3 text-sm text-slate-600">{{ t.postedAt ? formatDate(t.postedAt) : '—' }}</td>
+              <td class="px-4 py-3 text-right">
+                <DropdownMenu>
+                  <template #default="{ close }">
+                    <button
+                      class="block min-h-11 w-full px-3 text-left text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="!canPost || t.status === 'POSTED'"
+                      @click="postTransfer(t.id); close()"
+                    >
+                      Post
+                    </button>
+                    <button
+                      v-if="canWrite"
+                      class="block min-h-11 w-full px-3 text-left text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="t.status === 'POSTED'"
+                      @click="editDraft(t); close()"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      v-if="canWrite"
+                      class="block min-h-11 w-full px-3 text-left text-sm text-red-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="t.status === 'POSTED'"
+                      @click="cancelDraft(t.id); close()"
+                    >
+                      Cancel draft
+                    </button>
+                  </template>
+                </DropdownMenu>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="space-y-3 p-3 md:hidden">
+        <article v-for="t in filteredRows" :key="t.id" class="rounded-xl border border-slate-200 p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm text-slate-500">{{ formatDate(t.transferDate || t.createdAt) }}</p>
+              <h3 class="text-sm font-medium text-slate-900">
+                {{ displayName(t.fromOwner) || 'Retired Shares' }} → {{ displayName(t.toOwner) || 'Retired Shares' }}
+              </h3>
+              <p class="mt-1 text-sm text-slate-600">{{ formatLines(t.lines) }}</p>
+              <p class="text-sm text-slate-500">{{ t.notes || '—' }}</p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <Badge :tone="t.status === 'POSTED' ? 'success' : 'warning'">{{ t.status }}</Badge>
+              <DropdownMenu>
+                <template #default="{ close }">
+                  <button
+                    class="block min-h-11 w-full px-3 text-left text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="!canPost || t.status === 'POSTED'"
+                    @click="postTransfer(t.id); close()"
+                  >
+                    Post
+                  </button>
+                  <button
+                    v-if="canWrite"
+                    class="block min-h-11 w-full px-3 text-left text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="t.status === 'POSTED'"
+                    @click="editDraft(t); close()"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    v-if="canWrite"
+                    class="block min-h-11 w-full px-3 text-left text-sm text-red-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="t.status === 'POSTED'"
+                    @click="cancelDraft(t.id); close()"
+                  >
+                    Cancel draft
+                  </button>
+                </template>
+              </DropdownMenu>
+            </div>
+          </div>
+        </article>
+      </div>
+    </Card>
+
+    <Drawer :open="drawerOpen" @close="clearForm">
+      <form class="flex h-full flex-col" @submit.prevent="save">
+        <div class="flex items-center justify-between border-b border-slate-200 p-4">
+          <h3 class="text-base font-semibold">{{ editingId ? 'Edit transfer draft' : 'Create transfer draft' }}</h3>
+          <button type="button" aria-label="Close drawer" class="min-h-11 min-w-11 rounded-lg border border-slate-300" @click="clearForm">✕</button>
+        </div>
+
+        <div class="flex-1 space-y-3 overflow-y-auto p-4">
+          <Select v-model="form.fromOwnerId" label="From owner">
+            <option disabled value="">From owner</option>
+            <option :value="RETIRED_VALUE">Retired Shares</option>
+            <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
+          </Select>
+          <Select v-model="form.toOwnerId" label="To owner">
+            <option disabled value="">To owner</option>
+            <option :value="RETIRED_VALUE">Retired Shares</option>
+            <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
+          </Select>
+          <Input v-model="form.transferDate" type="date" label="Transfer date" />
+          <Select v-model="form.lotId" label="Source lot">
+            <option value="">Lot</option>
+            <option v-for="l in filteredLots" :key="l.id" :value="l.id">
+              {{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0, 8)}` }} - {{ l.shares }}
+            </option>
+          </Select>
+          <Input v-model="form.sharesTaken" type="number" min="1" label="Share quantity" placeholder="Share Quantity" />
+          <Input v-model="form.notes" label="Notes" placeholder="Notes" />
+        </div>
+
+        <div class="flex justify-end gap-2 border-t border-slate-200 p-4">
+          <Button variant="secondary" @click="clearForm">Cancel</Button>
+          <Button type="submit" :loading="isSaving">{{ editingId ? 'Save draft' : 'Create draft' }}</Button>
+        </div>
+      </form>
+    </Drawer>
   </section>
 </template>
 
@@ -51,6 +166,15 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
+import Badge from '../components/ui/Badge.vue';
+import Button from '../components/ui/Button.vue';
+import Card from '../components/ui/Card.vue';
+import Drawer from '../components/ui/Drawer.vue';
+import DropdownMenu from '../components/ui/DropdownMenu.vue';
+import EmptyState from '../components/ui/EmptyState.vue';
+import Input from '../components/ui/Input.vue';
+import LoadingState from '../components/ui/LoadingState.vue';
+import Select from '../components/ui/Select.vue';
 
 const rows = ref<any[]>([]);
 const shareholders = ref<any[]>([]);
@@ -58,9 +182,14 @@ const lots = ref<any[]>([]);
 const RETIRED_VALUE = '__RETIRED_SHARES__';
 const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' });
 const editingId = ref<string | null>(null);
+const search = ref('');
+const drawerOpen = ref(false);
+const isLoading = ref(false);
+const isSaving = ref(false);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPost = computed(() => auth.canPost);
+
 const filteredLots = computed(() => {
   const from = form.value.fromOwnerId;
   if (!from || from === RETIRED_VALUE) return [];
@@ -79,10 +208,30 @@ const formatLines = (lines: any[]) =>
     })
     .join('; ');
 
+const filteredRows = computed(() => {
+  const query = search.value.trim().toLowerCase();
+  if (!query) return rows.value;
+  return rows.value.filter((t) =>
+    [displayName(t.fromOwner), displayName(t.toOwner), t.status, t.notes, formatLines(t.lines)]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  );
+});
+
 const load = async () => {
-  rows.value = (await api.get('/transfers')).data;
-  shareholders.value = (await api.get('/shareholders')).data;
-  lots.value = (await api.get('/lots')).data;
+  isLoading.value = true;
+  try {
+    rows.value = (await api.get('/transfers')).data;
+    shareholders.value = (await api.get('/shareholders')).data;
+    lots.value = (await api.get('/lots')).data;
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const openCreateDrawer = () => {
+  clearForm();
+  drawerOpen.value = true;
 };
 
 watch(
@@ -95,25 +244,31 @@ watch(
 const clearForm = () => {
   editingId.value = null;
   form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' };
+  drawerOpen.value = false;
 };
 
 const save = async () => {
-  const payload = {
-    fromOwnerId: !form.value.fromOwnerId || form.value.fromOwnerId === RETIRED_VALUE ? null : form.value.fromOwnerId,
-    toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === RETIRED_VALUE ? null : form.value.toOwnerId,
-    transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
-    notes: form.value.notes || undefined,
-    lines: [{ lotId: form.value.lotId, sharesTaken: Number(form.value.sharesTaken) }]
-  };
+  isSaving.value = true;
+  try {
+    const payload = {
+      fromOwnerId: !form.value.fromOwnerId || form.value.fromOwnerId === RETIRED_VALUE ? null : form.value.fromOwnerId,
+      toOwnerId: !form.value.toOwnerId || form.value.toOwnerId === RETIRED_VALUE ? null : form.value.toOwnerId,
+      transferDate: form.value.transferDate ? new Date(form.value.transferDate).toISOString() : undefined,
+      notes: form.value.notes || undefined,
+      lines: [{ lotId: form.value.lotId, sharesTaken: Number(form.value.sharesTaken) }]
+    };
 
-  if (editingId.value) {
-    await api.put(`/transfers/${editingId.value}`, payload);
-  } else {
-    await api.post('/transfers', payload);
+    if (editingId.value) {
+      await api.put(`/transfers/${editingId.value}`, payload);
+    } else {
+      await api.post('/transfers', payload);
+    }
+
+    clearForm();
+    await load();
+  } finally {
+    isSaving.value = false;
   }
-
-  clearForm();
-  await load();
 };
 
 const editDraft = (t: any) => {
@@ -128,6 +283,7 @@ const editDraft = (t: any) => {
     sharesTaken: firstLine?.sharesTaken ? String(firstLine.sharesTaken) : '',
     notes: t.notes || ''
   };
+  drawerOpen.value = true;
 };
 
 const cancelDraft = async (id: string) => {

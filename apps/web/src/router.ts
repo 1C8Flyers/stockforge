@@ -12,15 +12,15 @@ import AdminPage from './pages/AdminPage.vue';
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', component: LoginPage },
-    { path: '/', component: DashboardPage },
-    { path: '/shareholders', component: ShareholdersPage },
-    { path: '/lots', component: LotsPage },
-    { path: '/transfers', component: TransfersPage },
-    { path: '/meetings', component: MeetingsPage },
-    { path: '/reports', component: ReportsPage },
-    { path: '/audit-log', component: AuditLogPage },
-    { path: '/admin', component: AdminPage }
+    { path: '/login', component: LoginPage, meta: { title: 'Login' } },
+    { path: '/', component: DashboardPage, meta: { title: 'Dashboard' } },
+    { path: '/shareholders', component: ShareholdersPage, meta: { title: 'Shareholders' } },
+    { path: '/lots', component: LotsPage, meta: { title: 'Lots' } },
+    { path: '/transfers', component: TransfersPage, meta: { title: 'Transfers' } },
+    { path: '/meetings', component: MeetingsPage, meta: { title: 'Meetings' } },
+    { path: '/reports', component: ReportsPage, meta: { title: 'Reports' } },
+    { path: '/audit-log', component: AuditLogPage, meta: { title: 'Audit Log' } },
+    { path: '/admin', component: AdminPage, meta: { title: 'Admin' } }
   ]
 });
 

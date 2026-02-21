@@ -108,3 +108,30 @@ After updating, rebuild web image:
 ### Vite host blocked (`enterprise.local is not allowed`)
 Fix now included in [apps/web/vite.config.ts](apps/web/vite.config.ts):
 - `preview.allowedHosts` includes `enterprise.local`.
+
+## UI Modernization (apps/web)
+
+Frontend UI is modernized with Tailwind and a responsive app shell.
+
+Tailwind setup files:
+- [apps/web/tailwind.config.ts](apps/web/tailwind.config.ts)
+- [apps/web/postcss.config.cjs](apps/web/postcss.config.cjs)
+- [apps/web/src/styles/tailwind.css](apps/web/src/styles/tailwind.css)
+- Imported in [apps/web/src/main.ts](apps/web/src/main.ts)
+
+Layout shell usage:
+- [apps/web/src/layouts/AppShell.vue](apps/web/src/layouts/AppShell.vue) provides desktop sidebar, mobile drawer nav, sticky header, and logout.
+- [apps/web/src/App.vue](apps/web/src/App.vue) applies `AppShell` to all routes except `/login`.
+
+Reusable UI primitives:
+- Components live in [apps/web/src/components/ui](apps/web/src/components/ui)
+- Includes `Button`, `Card`, `Input`, `Select`, `Badge`, `DropdownMenu`, `Drawer`, `ConfirmDialog`, `EmptyState`, and `LoadingState`.
+
+CRUD page pattern:
+- Desktop table + mobile cards
+- Search filter at top
+- Row actions in `DropdownMenu`
+- Create/Edit in right drawer on desktop and full-screen sheet on mobile
+- Applied in:
+   - [apps/web/src/pages/ShareholdersPage.vue](apps/web/src/pages/ShareholdersPage.vue)
+   - [apps/web/src/pages/TransfersPage.vue](apps/web/src/pages/TransfersPage.vue)
