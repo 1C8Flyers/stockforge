@@ -10,6 +10,6 @@ export default defineConfig({
   preview: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['enterprise.local', 'localhost', '127.0.0.1']
+    allowedHosts: ['enterprise.local', 'sfdemo.manring.co', 'localhost', '127.0.0.1']
   }
 });
