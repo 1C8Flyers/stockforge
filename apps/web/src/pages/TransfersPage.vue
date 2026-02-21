@@ -5,7 +5,7 @@
         <h2 class="text-xl font-semibold text-slate-900">Transfers</h2>
         <p class="text-sm text-slate-600">Create draft transfers and post them when ready.</p>
       </div>
-      <Button v-if="canWrite" @click="openCreateDrawer">Create draft</Button>
+      <Button v-if="canWrite" @click="openCreateForm">Create transfer</Button>
     </div>
 
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
@@ -20,7 +20,7 @@
     </Card>
 
     <LoadingState v-if="isLoading" label="Loading transfers..." />
-    <EmptyState v-else-if="filteredRows.length === 0" title="No transfers found" description="Create a transfer draft to get started." />
+    <EmptyState v-else-if="filteredRows.length === 0" title="No transfers found" description="Create a transfer to get started." />
 
     <Card v-else class="p-0">
       <div class="hidden overflow-x-auto md:block">
@@ -124,41 +124,48 @@
       </div>
     </Card>
 
-    <Drawer :open="drawerOpen" @close="clearForm">
-      <form class="flex h-full flex-col" @submit.prevent="save">
-        <div class="flex items-center justify-between border-b border-slate-200 p-4">
-          <h3 class="text-base font-semibold">{{ editingId ? 'Edit transfer draft' : 'Create transfer draft' }}</h3>
-          <button type="button" aria-label="Close drawer" class="min-h-11 min-w-11 rounded-lg border border-slate-300" @click="clearForm">✕</button>
-        </div>
+    <Teleport to="body">
+      <div v-if="formOpen" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-slate-900/50" @click="clearForm" />
+        <div class="relative z-10 mx-auto mt-10 w-[min(900px,95vw)]">
+          <Card>
+            <form class="space-y-4" @submit.prevent="save">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900">{{ editingId ? 'Edit transfer' : 'Create transfer' }}</h3>
+                <Button type="button" variant="ghost" @click="clearForm">Close</Button>
+              </div>
 
-        <div class="flex-1 space-y-3 overflow-y-auto p-4">
-          <Select v-model="form.fromOwnerId" label="From owner">
-            <option disabled value="">From owner</option>
-            <option :value="RETIRED_VALUE">Retired Shares</option>
-            <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
-          </Select>
-          <Select v-model="form.toOwnerId" label="To owner">
-            <option disabled value="">To owner</option>
-            <option :value="RETIRED_VALUE">Retired Shares</option>
-            <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
-          </Select>
-          <Input v-model="form.transferDate" type="date" label="Transfer date" />
-          <Select v-model="form.lotId" label="Source lot">
-            <option value="">Lot</option>
-            <option v-for="l in filteredLots" :key="l.id" :value="l.id">
-              {{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0, 8)}` }} - {{ l.shares }}
-            </option>
-          </Select>
-          <Input v-model="form.sharesTaken" type="number" min="1" label="Share quantity" placeholder="Share Quantity" />
-          <Input v-model="form.notes" label="Notes" placeholder="Notes" />
-        </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <Select v-model="form.fromOwnerId" label="From owner">
+                  <option disabled value="">From owner</option>
+                  <option :value="RETIRED_VALUE">Retired Shares</option>
+                  <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
+                </Select>
+                <Select v-model="form.toOwnerId" label="To owner">
+                  <option disabled value="">To owner</option>
+                  <option :value="RETIRED_VALUE">Retired Shares</option>
+                  <option v-for="s in shareholders" :key="s.id" :value="s.id">{{ displayName(s) }}</option>
+                </Select>
+                <Input v-model="form.transferDate" type="date" label="Transfer date" />
+                <Select v-model="form.lotId" label="Source lot">
+                  <option value="">Lot</option>
+                  <option v-for="l in filteredLots" :key="l.id" :value="l.id">
+                    {{ l.certificateNumber ? `Cert ${l.certificateNumber}` : `Lot ${l.id.slice(0, 8)}` }} - {{ l.shares }}
+                  </option>
+                </Select>
+                <Input v-model="form.sharesTaken" type="number" min="1" label="Share quantity" placeholder="Share Quantity" />
+                <Input v-model="form.notes" label="Notes" placeholder="Notes" />
+              </div>
 
-        <div class="flex justify-end gap-2 border-t border-slate-200 p-4">
-          <Button variant="secondary" @click="clearForm">Cancel</Button>
-          <Button type="submit" :loading="isSaving">{{ editingId ? 'Save draft' : 'Create draft' }}</Button>
+              <div class="flex justify-end gap-2">
+                <Button type="button" variant="secondary" @click="clearForm">Cancel</Button>
+                <Button type="submit" :loading="isSaving">{{ editingId ? 'Save transfer' : 'Create transfer' }}</Button>
+              </div>
+            </form>
+          </Card>
         </div>
-      </form>
-    </Drawer>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -169,7 +176,6 @@ import { useAuthStore } from '../stores/auth';
 import Badge from '../components/ui/Badge.vue';
 import Button from '../components/ui/Button.vue';
 import Card from '../components/ui/Card.vue';
-import Drawer from '../components/ui/Drawer.vue';
 import DropdownMenu from '../components/ui/DropdownMenu.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
 import Input from '../components/ui/Input.vue';
@@ -183,7 +189,7 @@ const RETIRED_VALUE = '__RETIRED_SHARES__';
 const form = ref({ fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' });
 const editingId = ref<string | null>(null);
 const search = ref('');
-const drawerOpen = ref(false);
+const formOpen = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const auth = useAuthStore();
@@ -229,9 +235,9 @@ const load = async () => {
   }
 };
 
-const openCreateDrawer = () => {
+const openCreateForm = () => {
   clearForm();
-  drawerOpen.value = true;
+  formOpen.value = true;
 };
 
 watch(
@@ -244,7 +250,7 @@ watch(
 const clearForm = () => {
   editingId.value = null;
   form.value = { fromOwnerId: '', toOwnerId: '', transferDate: '', lotId: '', sharesTaken: '', notes: '' };
-  drawerOpen.value = false;
+  formOpen.value = false;
 };
 
 const save = async () => {
@@ -283,7 +289,7 @@ const editDraft = (t: any) => {
     sharesTaken: firstLine?.sharesTaken ? String(firstLine.sharesTaken) : '',
     notes: t.notes || ''
   };
-  drawerOpen.value = true;
+  formOpen.value = true;
 };
 
 const cancelDraft = async (id: string) => {
