@@ -16,14 +16,16 @@ export async function configRoutes(app: FastifyInstance) {
       .object({
         excludeDisputedFromVoting: z.boolean().optional(),
         appDisplayName: z.string().trim().min(1).max(80).optional(),
-        appLogoUrl: z.string().trim().max(500).optional()
+        appLogoUrl: z.string().trim().max(500).optional(),
+        appIncorporationState: z.string().trim().max(80).optional()
       })
       .parse(request.body);
 
     if (
       typeof body.excludeDisputedFromVoting === 'undefined' &&
       typeof body.appDisplayName === 'undefined' &&
-      typeof body.appLogoUrl === 'undefined'
+      typeof body.appLogoUrl === 'undefined' &&
+      typeof body.appIncorporationState === 'undefined'
     ) {
       return request.server.httpErrors.badRequest('No config fields provided');
     }
@@ -59,6 +61,19 @@ export async function configRoutes(app: FastifyInstance) {
         create: { key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
       });
       updates.push('appLogoUrl');
+    }
+
+    if (typeof body.appIncorporationState === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'appIncorporationState' },
+        update: { value: body.appIncorporationState, updatedById: request.userContext.id },
+        create: {
+          key: 'appIncorporationState',
+          value: body.appIncorporationState,
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('appIncorporationState');
     }
 
     const rows = await prisma.appConfig.findMany();

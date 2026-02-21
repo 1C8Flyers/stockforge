@@ -103,6 +103,7 @@ In lot edit mode, allowed updates are metadata fields (for example owner, status
 Printing certificates:
 - Admin/Officer users can use **Original** or **Reprint** on lot rows/cards to generate stock certificate PDFs.
 - Certificate PDFs include a visible `ORIGINAL` or `REPRINT` label based on the selected action.
+- Certificate PDFs include a `State of Incorporation` line under the corporation name when set in Admin branding.
 - Only lots with status `Active` are printable; non-active lots return a clear message.
 
 ### Step C — Draft transfer

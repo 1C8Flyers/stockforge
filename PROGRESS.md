@@ -87,3 +87,4 @@
 	- Lots page print action for Admin/Officer users
 	- printing restricted to `Active` lots with clear user-facing errors for non-printable statuses
 	- certificate output supports explicit `ORIGINAL` and `REPRINT` labels
+	- certificate header now includes configurable state of incorporation line from Admin branding settings

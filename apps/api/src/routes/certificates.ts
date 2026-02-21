@@ -20,6 +20,7 @@ function sanitizeFilePart(value: string) {
 
 function buildCertificatePdf(input: {
   appName: string;
+  appIncorporationState: string;
   certificateNumber: string;
   ownerDisplayName: string;
   shares: number;
@@ -35,7 +36,16 @@ function buildCertificatePdf(input: {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
 
     doc.font('Helvetica-Bold').fontSize(22).fillColor('#0f172a').text(input.appName, { align: 'center' });
-    doc.moveDown(0.5);
+    if (input.appIncorporationState) {
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor('#475569')
+        .text(`State of Incorporation: ${input.appIncorporationState}`, { align: 'center' });
+      doc.moveDown(0.25);
+    } else {
+      doc.moveDown(0.5);
+    }
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#111827').text('Stock Certificate', { align: 'center' });
     doc.moveDown(1.1);
 
@@ -108,13 +118,15 @@ export async function certificateRoutes(app: FastifyInstance) {
       });
     }
 
-    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName'] } } });
+    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState'] } } });
     const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
+    const appIncorporationState = cfg.find((c) => c.key === 'appIncorporationState')?.value || '';
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
     const printLabel = mode === 'reprint' ? 'REPRINT' : 'ORIGINAL';
     const pdf = await buildCertificatePdf({
       appName,
+      appIncorporationState,
       certificateNumber,
       ownerDisplayName: ownerName(lot.owner),
       shares: lot.shares,

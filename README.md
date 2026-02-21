@@ -102,6 +102,7 @@ Environment/CORS for proxy deployment:
 - Meetings page: Proxies and Motions & Votes tabs show pending badges only when draft proxies/open motions exist
 - Lots: Admin/Officer can print stock certificate PDFs for Active lots from the Lots page
 - Lots: certificate printing now supports explicit `Original` and `Reprint` actions with matching PDF labels
+- Branding: Admin can configure `State of incorporation`, rendered under company name on stock certificates
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting

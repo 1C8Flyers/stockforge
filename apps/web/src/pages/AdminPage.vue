@@ -24,13 +24,17 @@
 
     <Card>
       <h3 class="font-semibold text-slate-900">Branding</h3>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
         <Input v-model="appDisplayName" label="App name" placeholder="StockForge" />
         <Input v-model="appLogoUrl" label="Logo URL" placeholder="https://..." />
+        <Input v-model="appIncorporationState" label="State of incorporation" placeholder="Wyoming" />
       </div>
       <div class="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <img v-if="appLogoUrl" :src="appLogoUrl" alt="Logo preview" class="h-10 w-10 rounded object-cover" />
-        <div class="text-sm text-slate-700">Preview: <b>{{ appDisplayName || 'StockForge' }}</b></div>
+        <div class="text-sm text-slate-700">
+          <div>Preview: <b>{{ appDisplayName || 'StockForge' }}</b></div>
+          <div v-if="appIncorporationState" class="text-xs text-slate-500">State of incorporation: {{ appIncorporationState }}</div>
+        </div>
       </div>
       <Button class="mt-3" :loading="isSavingBranding" @click="saveBranding">Save branding</Button>
       <p v-if="brandingMessage" class="mt-2 text-sm" :class="brandingMessageTone === 'error' ? 'text-rose-700' : 'text-emerald-700'">{{ brandingMessage }}</p>
@@ -103,6 +107,7 @@ const health = ref<any>(null);
 const excludeDisputed = ref(false);
 const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
+const appIncorporationState = ref('');
 const users = ref<any[]>([]);
 const passwords = ref<Record<string, string>>({});
 const isSavingConfig = ref(false);
@@ -122,6 +127,7 @@ const loadConfig = async () => {
   excludeDisputed.value = cfg.excludeDisputedFromVoting === 'true';
   appDisplayName.value = cfg.appDisplayName || 'StockForge';
   appLogoUrl.value = cfg.appLogoUrl || '';
+  appIncorporationState.value = cfg.appIncorporationState || '';
 };
 
 const saveConfig = async () => {
@@ -130,7 +136,8 @@ const saveConfig = async () => {
     const data = (await api.put('/config', {
       excludeDisputedFromVoting: excludeDisputed.value,
       appDisplayName: appDisplayName.value.trim() || 'StockForge',
-      appLogoUrl: appLogoUrl.value.trim()
+      appLogoUrl: appLogoUrl.value.trim(),
+      appIncorporationState: appIncorporationState.value.trim()
     })).data;
     excludeDisputed.value = data.excludeDisputedFromVoting === 'true';
   } finally {
@@ -144,11 +151,13 @@ const saveBranding = async () => {
   try {
     const data = (await api.put('/config', {
       appDisplayName: appDisplayName.value.trim() || 'StockForge',
-      appLogoUrl: appLogoUrl.value.trim()
+      appLogoUrl: appLogoUrl.value.trim(),
+      appIncorporationState: appIncorporationState.value.trim()
     })).data as Record<string, string>;
 
     appDisplayName.value = data.appDisplayName || 'StockForge';
     appLogoUrl.value = data.appLogoUrl || '';
+    appIncorporationState.value = data.appIncorporationState || '';
 
     window.dispatchEvent(
       new CustomEvent('app-branding-updated', {
