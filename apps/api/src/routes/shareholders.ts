@@ -1,4 +1,4 @@
-import { RoleName, ShareholderType, ShareholderStatus } from '@prisma/client';
+import { Prisma, RoleName, ShareholderType, ShareholderStatus } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
@@ -90,9 +90,31 @@ export async function shareholderRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request) => {
+  app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    await prisma.shareholder.delete({ where: { id } });
+    const existing = await prisma.shareholder.findUnique({
+      where: { id },
+      include: { _count: { select: { lots: true, proxyGrantor: true } } }
+    });
+    if (!existing) return reply.notFound();
+
+    if (existing._count.lots > 0 || existing._count.proxyGrantor > 0) {
+      return reply.code(409).send({
+        error:
+          'Cannot delete shareholder with linked share lots or granted proxies. Remove or reassign those records first.'
+      });
+    }
+
+    try {
+      await prisma.shareholder.delete({ where: { id } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+        return reply.code(409).send({
+          error: 'Cannot delete shareholder because related records still reference this shareholder.'
+        });
+      }
+      throw error;
+    }
     await audit(prisma, request.userContext.id, 'DELETE', 'Shareholder', id);
     return { ok: true };
   });

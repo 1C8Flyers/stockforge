@@ -12,6 +12,10 @@
       Read-only mode: create/edit actions are disabled.
     </p>
 
+    <p v-if="deleteError" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+      {{ deleteError }}
+    </p>
+
     <Card>
       <Input v-model="search" label="Search" placeholder="Name, email, phone, city..." />
     </Card>
@@ -157,6 +161,7 @@ const search = ref('');
 const drawerOpen = ref(false);
 const confirmDeleteOpen = ref(false);
 const deleteId = ref<string | null>(null);
+const deleteError = ref('');
 
 const emptyForm = () => ({
   type: 'PERSON',
@@ -242,16 +247,24 @@ const startEdit = (s: any) => {
 };
 
 const askDelete = (s: any) => {
+  deleteError.value = '';
   deleteId.value = s.id;
   confirmDeleteOpen.value = true;
 };
 
 const confirmDelete = async () => {
   if (!deleteId.value) return;
-  await api.delete(`/shareholders/${deleteId.value}`);
-  confirmDeleteOpen.value = false;
-  deleteId.value = null;
-  await load();
+  try {
+    await api.delete(`/shareholders/${deleteId.value}`);
+    confirmDeleteOpen.value = false;
+    deleteId.value = null;
+    deleteError.value = '';
+    await load();
+  } catch (error: any) {
+    const message = error?.response?.data?.error || 'Unable to delete shareholder. Please check linked records and try again.';
+    deleteError.value = message;
+    confirmDeleteOpen.value = false;
+  }
 };
 
 const cancelEdit = () => {
