@@ -4,35 +4,45 @@
     <Card class="space-y-3">
       <p class="text-sm text-slate-600">Download compliance and meeting exports.</p>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
-        <a :href="capTableUrl" target="_blank" class="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">Ownership Report CSV</a>
-        <a :href="capTablePdfUrl" target="_blank" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Ownership Report PDF</a>
+        <Button @click="download('/reports/cap-table.csv', 'ownership-report.csv')">Ownership Report CSV</Button>
+        <Button variant="secondary" @click="download('/reports/cap-table.pdf', 'ownership-report.pdf')">Ownership Report PDF</Button>
         <div class="min-w-[260px] flex-1">
           <Select v-model="meetingId" label="Meeting for proxy report">
             <option value="">Meeting for proxy report</option>
             <option v-for="m in meetings" :value="m.id" :key="m.id">{{ m.title }}</option>
           </Select>
         </div>
-        <a v-if="meetingId" :href="proxyUrl" target="_blank" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Meeting Proxy CSV</a>
-        <a v-if="meetingId" :href="proxyPdfUrl" target="_blank" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Meeting Proxy PDF</a>
+        <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.csv?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.csv`)">Meeting Proxy CSV</Button>
+        <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.pdf?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.pdf`)">Meeting Proxy PDF</Button>
       </div>
     </Card>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { api } from '../api';
+import Button from '../components/ui/Button.vue';
 import Card from '../components/ui/Card.vue';
 import Select from '../components/ui/Select.vue';
 
-const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 const meetingId = ref('');
 const meetings = ref<any[]>([]);
 
-const capTableUrl = computed(() => `${base}/reports/cap-table.csv`);
-const capTablePdfUrl = computed(() => `${base}/reports/cap-table.pdf`);
-const proxyUrl = computed(() => `${base}/reports/meeting-proxy.csv?meetingId=${meetingId.value}`);
-const proxyPdfUrl = computed(() => `${base}/reports/meeting-proxy.pdf?meetingId=${meetingId.value}`);
+const download = async (url: string, fallbackFilename: string) => {
+  const response = await api.get(url, { responseType: 'blob' });
+  const contentDisposition = String(response.headers['content-disposition'] || '');
+  const match = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const filename = match?.[1] || fallbackFilename;
+  const blobUrl = window.URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+};
 
 onMounted(async () => {
   meetings.value = (await api.get('/meetings')).data;
