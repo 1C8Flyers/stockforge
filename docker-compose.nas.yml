@@ -16,7 +16,7 @@ services:
       DATABASE_URL: postgresql://cottonwood:cottonwood@db:5432/cottonwood?schema=public
       API_PORT: "3000"
       JWT_SECRET: change_me_super_secret
-      CORS_ORIGIN: http://localhost:15173
+      CORS_ORIGIN: http://enterprise.local:15173,http://localhost:15173
       UPLOAD_DIR: /app/uploads
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: ChangeMe123!
@@ -32,8 +32,10 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://enterprise.local:13000/api
     environment:
-      VITE_API_BASE_URL: http://localhost:13000/api
+      VITE_API_BASE_URL: http://enterprise.local:13000/api
     depends_on:
       - api
     ports:

@@ -1,6 +1,9 @@
 FROM node:22-alpine
 WORKDIR /app
 
+ARG VITE_API_BASE_URL=http://localhost:3000/api
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 COPY package.json tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
