@@ -35,9 +35,15 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   const pathLower = to.path.toLowerCase();
-  const certSegment = to.path
+  const certFromPath = to.path
     .split('/')
     .find((segment) => segment.toUpperCase().startsWith('CERT-'));
+  const certFromHash = (() => {
+    const hash = decodeURIComponent(to.hash || '');
+    const match = hash.match(/(CERT-[A-Za-z0-9_-]+)/i);
+    return match?.[1];
+  })();
+  const certSegment = certFromPath || certFromHash;
 
   if (certSegment) {
     const canonicalPath = `/verify/certificate/${encodeURIComponent(certSegment)}`;
