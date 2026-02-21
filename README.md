@@ -23,6 +23,22 @@ Container startup for API runs:
 2) `seed`
 3) `start`
 
+## NAS deployment (Enterprise)
+For NAS environments where ports `3000`/`5173`/`5432` are already in use, use the NAS compose profile:
+
+- Compose file: [docker-compose.nas.yml](docker-compose.nas.yml)
+- Run:
+   - `docker compose -f docker-compose.nas.yml up -d --build`
+
+Default NAS mappings:
+- Web: `15173 -> 5173`
+- API: `13000 -> 3000`
+- DB: internal only (no host binding)
+
+Access URLs on NAS:
+- Web: `http://enterprise.local:15173`
+- API: `http://enterprise.local:13000/api`
+
 Default seeded admin (from .env):
 - Email: `ADMIN_EMAIL`
 - Password: `ADMIN_PASSWORD`
@@ -68,3 +84,19 @@ Environment/CORS for proxy deployment:
 - Set `VITE_API_BASE_URL=/api`
 - Set `CORS_ORIGIN` to your public web origin (for example `https://shares.example.com`)
 - Keep auth token in `Authorization: Bearer <token>`
+
+## Troubleshooting
+### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`
+Cause: built web bundle still points to localhost API.
+
+Fixes now included:
+- Web Docker image accepts build arg `VITE_API_BASE_URL`.
+- Compose files pass `VITE_API_BASE_URL` at build time.
+- NAS profile sets API URL to `http://enterprise.local:13000/api`.
+
+After updating, rebuild web image:
+- `docker compose -f docker-compose.nas.yml up -d --build web`
+
+### Vite host blocked (`enterprise.local is not allowed`)
+Fix now included in [apps/web/vite.config.ts](apps/web/vite.config.ts):
+- `preview.allowedHosts` includes `enterprise.local`.

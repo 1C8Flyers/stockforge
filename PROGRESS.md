@@ -23,3 +23,10 @@
 - MVP implementation landed with API/Web/Shared workspaces, Docker, migrations, and seed admin flow.
 - Workspace build validation passed (`npm run build`).
 - Second pass completed: web app now hydrates `auth/me` and applies client-side role-aware UX for `Admin`/`Officer`/`Clerk`/`ReadOnly` actions.
+- Deployed to NAS path `/backup-8tb/Docker/stockforge` using compose profile `docker-compose.nas.yml`.
+- Deployment hardening completed:
+	- fixed API container start path (`dist/src/index.js`)
+	- updated `@fastify/sensible` for Fastify v5 compatibility
+	- added Vite `preview.allowedHosts` for `enterprise.local`
+	- baked `VITE_API_BASE_URL` into web Docker build to avoid stale `localhost:3000/api`
+	- updated NAS CORS/API URL mapping (`enterprise.local:15173` -> `enterprise.local:13000/api`)
