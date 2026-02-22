@@ -20,6 +20,11 @@ Default seeded admin credentials:
 
 After first login, change to a secure password in your user-management process.
 
+If you forget your password:
+- Use **Forgot password?** from the Login page.
+- Request a reset link at `/request-password-reset`.
+- Complete reset on `/reset-password` using the tokenized link.
+
 ---
 
 ## 3) Roles and permissions
@@ -110,6 +115,14 @@ Printing certificates:
 - Public verification links remain accessible without login even when a previously saved session token is expired.
 - Only lots with status `Active` are printable; non-active lots return a clear message.
 
+Emailing certificates (manual-only):
+- Admin/Officer can click **Email** from Lots rows/cards.
+- Button appears only when:
+	- lot is `Active`
+	- shareholder has an email address
+	- Admin Email Preference `Certificate notice emails enabled` is on
+- Certificate emails include verification info and an attached certificate PDF.
+
 ### Step C — Draft transfer
 1. Open **Transfers**.
 2. Click **Create transfer** to open the transfer popup card.
@@ -169,6 +182,12 @@ From **Reports** page:
 	- standard motion vote results
 	- election totals and winner details
 	- detailed ballot/election breakdown
+
+Emailing meeting reports:
+- Admin/Officer can send the selected meeting report by email directly from Reports:
+  - **Email Meeting Report** (officers/admin distribution)
+  - **Send test to me** (current user only)
+- Requires Email Preference `Meeting report emails enabled` and SMTP configuration.
 
 Use these exports for review packets and compliance records.
 
@@ -238,12 +257,26 @@ Use **Retired Shares** only when shares should move to/from the null-owner retir
 
 ## 14) Admin / Settings quick guide
 
-Admin-only page includes:
-- **System Health**: DB connectivity and migration count
-- **Voting Configuration**: toggle disputed-lot exclusion from voting
-- **Branding**: set app display name and logo URL for sidebar/mobile navigation header branding, with save confirmation/error feedback
-	- includes **Public app URL** used as the base for certificate verification links/QR codes
-- **Create User**: email, temporary password, role selection
-- **User Management**: update roles and reset user passwords
+Admin-only page uses tabbed sections (`/admin?tab=...`):
+- **Users & Roles**
+	- create users
+	- update roles
+	- reset passwords
+- **Branding**
+	- app display name, logo URL, incorporation state, public app URL
+- **Voting / Governance**
+	- disputed-lot exclusion toggle
+- **Email**
+	- feature-level email preferences
+	- SMTP settings + test email
+	- last 100 email logs
+- **System**
+	- DB health and migration count
+
+Admin tab status badges:
+- **Email**: `Disabled`, `Not Configured`, or green-ready indicator
+- **System**: `Migration` warning or `Issue` on failed health
+- **Branding/Voting**: warning dots when incomplete/warning states apply
+- **Users**: muted user-count badge
 
 Branding updates apply to the app shell after saving settings.

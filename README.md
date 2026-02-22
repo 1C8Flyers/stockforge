@@ -69,17 +69,20 @@ Roles enforced server-side:
 - ReadOnly
 
 ## Implemented API areas
-- Auth: login, me
+- Auth: login, me, request-password-reset, reset-password
 - Config: get/update (Admin-only update) for voting + app branding (`appDisplayName`, `appLogoUrl`, `appIncorporationState`, `appPublicBaseUrl`)
 - Shareholders: CRUD
 - Lots: CRUD with immutable `certificateNumber` and `shares` after creation (edit supports metadata/status updates), including `Treasury` status
 - Transfers: draft CRUD + transactional post endpoint (append-only once posted), explicit `transferDate`, notes, human-readable owner/lot data, and special `Retired Shares` null-owner option
 - Meetings: CRUD + snapshot at creation + meeting mode endpoints (attendance, motions, votes), including election-type motions with office/candidate setup and persisted motion close/reopen state
+- Meetings: email meeting report endpoint (`POST /meetings/:id/email-report`) with officer/default recipients and PDF attachment
 - Proxies: CRUD with `proxySharesSnapshot` and represented share logic in meeting mode
+- Certificates: manual certificate email endpoint (`POST /certificates/lots/:lotId/email`) gated by email preference toggle
 - Dashboard endpoint with active voting shares, excluded breakdown, majority threshold, top holders, bloc builder, recent activity
 - Reports CSV/PDF: ownership (cap table), meeting proxy, and detailed meeting reports
 - Upload endpoint storing files on local mounted volume
 - Audit log for create/update/post/delete actions
+- Admin: encrypted SMTP settings, test email, and email send logs (`GET /admin/email-logs`)
 
 ## Local dev (without Docker)
 - `npm install`
@@ -105,6 +108,11 @@ Environment/CORS for proxy deployment:
 - In Admin → Email Settings, configure SMTP host/port/secure/user/password plus from-name/from-email.
 - Use **Send test email** in Admin to validate transporter config and delivery.
 - API responses never return SMTP password; they expose only `hasPassword`.
+- Configure Email Preferences in Admin for feature-level toggles:
+   - `email.passwordResetsEnabled`
+   - `email.meetingReportsEnabled`
+   - `email.proxyReceiptEnabled` (placeholder for future public proxy submission flow)
+   - `email.certificateNoticesEnabled` (manual certificate emails; off by default)
 
 ## Recent UX additions
 - Shareholders: phone + street/city/state/zip capture and edit support
@@ -130,6 +138,11 @@ Environment/CORS for proxy deployment:
 - Certificates: frontend accepts canonical and legacy verification link forms (`/verify/certificate/:id`, `/verify/:id`, `/verify/stock/:id`) and normalizes them to the canonical route
 - Certificates: hash-style/older scanner URL variants containing `CERT-...` are normalized to the public verification page
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
+- Auth: public self-service password reset flow added (`/request-password-reset`, `/reset-password`) with one-time, expiring reset tokens
+- Reports: Admin/Officer can email meeting reports with attachment from Reports page (`Email Meeting Report`, `Send test to me`)
+- Lots: Admin/Officer can manually email certificates when enabled in Email Preferences (shareholder-facing feature remains off by default)
+- Admin: email logs table added (last 100 sends with status/error-safe details)
+- Admin: page refactored into query-param tabs (`/admin?tab=users|branding|voting|email|system`) with lazy tab loading and status badges
 
 ## Troubleshooting
 ### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`
@@ -183,3 +196,8 @@ Refined pages with consistent card/table/form styling:
 - [apps/web/src/pages/AuditLogPage.vue](apps/web/src/pages/AuditLogPage.vue)
 - [apps/web/src/pages/AdminPage.vue](apps/web/src/pages/AdminPage.vue)
 - [apps/web/src/pages/LoginPage.vue](apps/web/src/pages/LoginPage.vue)
+
+Admin page composition:
+- Tab shell remains at [apps/web/src/pages/AdminPage.vue](apps/web/src/pages/AdminPage.vue)
+- Section panels moved to [apps/web/src/components/admin](apps/web/src/components/admin)
+- Central admin state/actions live in [apps/web/src/stores/adminStore.ts](apps/web/src/stores/adminStore.ts)

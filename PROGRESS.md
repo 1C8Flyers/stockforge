@@ -97,3 +97,18 @@
 	  - path/hash URL normalization added for older scanner URL variants containing `CERT-...`
 	  - public verification flow hardened to avoid forced login redirects caused by stale stored JWTs
 	  - Admin setting added for `Public app URL` to control certificate verification link base
+
+- Email Phase 2 completed and deployed:
+	- self-service password reset flow (request/reset endpoints + public web pages)
+	- meeting report email endpoint with PDF attachment and recipient modes
+	- manual certificate email endpoint (toggle-gated, role-gated)
+	- AppConfig email preference toggles wired through Admin
+	- EmailLog model + Admin email logs table (last 100)
+	- proxy receipt placeholder service implemented (deferred until public proxy submission endpoint)
+
+- Admin page architecture refresh completed:
+	- tabbed Admin shell under `/admin` with query-param state (`?tab=users|branding|voting|email|system`)
+	- lazy first-load data per tab
+	- status badges for users/email/system/branding/voting conditions
+	- modular panel components under `apps/web/src/components/admin`
+	- centralized admin Pinia store in `apps/web/src/stores/adminStore.ts`
