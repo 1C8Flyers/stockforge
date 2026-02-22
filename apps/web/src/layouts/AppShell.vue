@@ -27,6 +27,13 @@
               <h1 class="truncate text-lg font-semibold text-slate-900">{{ pageTitle }}</h1>
             </div>
             <slot name="headerActions" />
+            <button
+              type="button"
+              class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50"
+              @click="helpOpen = true"
+            >
+              Help
+            </button>
             <div class="hidden rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500 sm:block">{{ rolesText }}</div>
             <button
               type="button"
@@ -49,6 +56,7 @@
     </div>
 
     <MobileNavDrawer :open="mobileNavOpen" :app-name="appDisplayName" :logo-url="appLogoUrl" @close="mobileNavOpen = false" />
+    <HelpPanel :open="helpOpen" :page-title="pageTitle" :markdown="pageHelpMarkdown" @close="helpOpen = false" />
   </div>
 </template>
 
@@ -58,12 +66,15 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import SideNav from '../components/nav/SideNav.vue';
 import MobileNavDrawer from '../components/nav/MobileNavDrawer.vue';
+import HelpPanel from '../components/help/HelpPanel.vue';
 import { api } from '../api';
+import { getHelpMarkdown } from '../help';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const mobileNavOpen = ref(false);
+const helpOpen = ref(false);
 const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
 const currentYear = new Date().getFullYear();
@@ -87,6 +98,7 @@ const pageTitle = computed(() => {
 });
 
 const rolesText = computed(() => (auth.roles.length ? auth.roles.join(', ') : 'No role'));
+const pageHelpMarkdown = computed(() => getHelpMarkdown(route.path));
 
 const logout = () => {
   auth.clear();

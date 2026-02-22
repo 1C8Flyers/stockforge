@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql://cottonwood:cottonwood@db:5432/cottonwood?schema=public
       API_PORT: "3000"
       JWT_SECRET: change_me_super_secret
+      EMAIL_SETTINGS_ENCRYPTION_KEY: ${EMAIL_SETTINGS_ENCRYPTION_KEY}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://shares.example.com}
       PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL:-https://shares.example.com}
       UPLOAD_DIR: /app/uploads

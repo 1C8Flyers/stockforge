@@ -60,6 +60,8 @@ Certificate verification settings:
 
 Email settings:
 - `EMAIL_SETTINGS_ENCRYPTION_KEY`: base64-encoded 32-byte key used for AES-256-GCM encryption of SMTP password values at rest
+   - generate one with: `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`
+   - set this in your `.env` before enabling/saving SMTP settings
 
 ## Auth + RBAC
 Roles enforced server-side:
@@ -108,6 +110,7 @@ Environment/CORS for proxy deployment:
 - In Admin → Email Settings, configure SMTP host/port/secure/user/password plus from-name/from-email.
 - Use **Send test email** in Admin to validate transporter config and delivery.
 - API responses never return SMTP password; they expose only `hasPassword`.
+- Both compose profiles now pass `EMAIL_SETTINGS_ENCRYPTION_KEY` into the API container (`docker-compose.yml` and `docker-compose.nas.yml`).
 - Configure Email Preferences in Admin for feature-level toggles:
    - `email.passwordResetsEnabled`
    - `email.meetingReportsEnabled`
