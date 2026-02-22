@@ -69,6 +69,7 @@ model User {
   attachments  Attachment[]
   auditLogs    AuditLog[]
   appConfigUpdates AppConfig[]
+  emailSettingsUpdates EmailSettings[]
 }
 
 model Role {
@@ -93,6 +94,27 @@ model AppConfig {
   updatedById   String?
   updatedAt     DateTime @updatedAt
   updatedByUser User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model EmailSettings {
+  id            String   @id @default(cuid())
+  enabled       Boolean  @default(false)
+
+  smtpHost      String?
+  smtpPort      Int?
+  smtpSecure    Boolean  @default(false)
+  smtpUser      String?
+  smtpPassEnc   String?
+
+  fromName      String?
+  fromEmail     String?
+  replyTo       String?
+
+  updatedById   String?
+  updatedAt     DateTime @updatedAt
+  updatedByUser User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([enabled])
 }
 
 model Shareholder {

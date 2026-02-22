@@ -58,6 +58,9 @@ Certificate verification settings:
 - `CERT_VERIFICATION_SECRET`: HMAC secret used to sign certificate verification links (recommended to set explicitly in production)
 - `PUBLIC_APP_BASE_URL`: public web origin used in certificate QR links (example: `https://shares.example.com`)
 
+Email settings:
+- `EMAIL_SETTINGS_ENCRYPTION_KEY`: base64-encoded 32-byte key used for AES-256-GCM encryption of SMTP password values at rest
+
 ## Auth + RBAC
 Roles enforced server-side:
 - Admin
@@ -96,6 +99,12 @@ Environment/CORS for proxy deployment:
 - Set `VITE_API_BASE_URL=/api`
 - Set `CORS_ORIGIN` to your public web origin (for example `https://shares.example.com`)
 - Keep auth token in `Authorization: Bearer <token>`
+
+## Email setup
+- Set `EMAIL_SETTINGS_ENCRYPTION_KEY` in your environment before enabling email in Admin.
+- In Admin → Email Settings, configure SMTP host/port/secure/user/password plus from-name/from-email.
+- Use **Send test email** in Admin to validate transporter config and delivery.
+- API responses never return SMTP password; they expose only `hasPassword`.
 
 ## Recent UX additions
 - Shareholders: phone + street/city/state/zip capture and edit support

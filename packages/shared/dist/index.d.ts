@@ -22,3 +22,28 @@ export interface AuthUser {
     email: string;
     roles: RoleName[];
 }
+export interface EmailSettingsDto {
+    enabled: boolean;
+    smtpHost: string | null;
+    smtpPort: number | null;
+    smtpSecure: boolean;
+    smtpUser: string | null;
+    hasPassword: boolean;
+    fromName: string | null;
+    fromEmail: string | null;
+    replyTo: string | null;
+}
+export interface EmailSettingsUpdateDto {
+    enabled: boolean;
+    smtpHost?: string | null;
+    smtpPort?: number | null;
+    smtpSecure?: boolean;
+    smtpUser?: string | null;
+    smtpPassword?: string | null;
+    fromName?: string | null;
+    fromEmail?: string | null;
+    replyTo?: string | null;
+}
+export interface EmailSettingsTestDto {
+    toEmail: string;
+}

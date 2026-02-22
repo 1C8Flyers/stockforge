@@ -42,6 +42,41 @@
     </Card>
 
     <Card>
+      <h3 class="font-semibold text-slate-900">Email Settings</h3>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 sm:col-span-2 lg:col-span-1">
+          <input type="checkbox" v-model="emailEnabled" class="h-4 w-4 rounded border-slate-300" />
+          Enable outbound email
+        </label>
+        <Input v-model="smtpHost" label="SMTP host" placeholder="smtp.example.com" />
+        <Input v-model="smtpPort" label="SMTP port" placeholder="587" type="number" min="1" max="65535" />
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" v-model="smtpSecure" class="h-4 w-4 rounded border-slate-300" />
+          Secure (TLS/SSL)
+        </label>
+        <Input v-model="smtpUser" label="SMTP user (optional)" placeholder="mailer@example.com" />
+        <Input
+          v-model="smtpPassword"
+          type="password"
+          label="SMTP password"
+          :help="hasSmtpPassword ? 'Password is set. Leave blank to keep current.' : 'Password required when enabling email.'"
+        />
+        <Input v-model="fromName" label="From name" placeholder="StockForge" />
+        <Input v-model="fromEmail" label="From email" placeholder="noreply@example.com" />
+        <Input v-model="replyTo" label="Reply-to (optional)" placeholder="support@example.com" />
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-end gap-2">
+        <Button :loading="isSavingEmailSettings" @click="saveEmailSettings">Save email settings</Button>
+        <Input v-model="testToEmail" label="Send test to" placeholder="you@example.com" />
+        <Button variant="secondary" :loading="isSendingTestEmail" @click="sendTestEmail">Send test email</Button>
+      </div>
+      <p v-if="emailSettingsMessage" class="mt-2 text-sm" :class="emailSettingsMessageTone === 'error' ? 'text-rose-700' : 'text-emerald-700'">
+        {{ emailSettingsMessage }}
+      </p>
+    </Card>
+
+    <Card>
       <h3 class="font-semibold text-slate-900">Create User</h3>
       <form @submit.prevent="createUser" class="mt-3 grid gap-3 lg:grid-cols-6">
         <Input v-model="newUser.email" type="email" label="Email" />
@@ -94,6 +129,7 @@ import { onMounted, ref } from 'vue';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
+import type { EmailSettingsDto, EmailSettingsTestDto, EmailSettingsUpdateDto } from '@cottonwood/shared';
 import Button from '../components/ui/Button.vue';
 import Card from '../components/ui/Card.vue';
 import Input from '../components/ui/Input.vue';
@@ -116,6 +152,21 @@ const isSavingConfig = ref(false);
 const isSavingBranding = ref(false);
 const brandingMessage = ref('');
 const brandingMessageTone = ref<'success' | 'error'>('success');
+const emailEnabled = ref(false);
+const smtpHost = ref('');
+const smtpPort = ref('');
+const smtpSecure = ref(false);
+const smtpUser = ref('');
+const smtpPassword = ref('');
+const hasSmtpPassword = ref(false);
+const fromName = ref('');
+const fromEmail = ref('');
+const replyTo = ref('');
+const testToEmail = ref('');
+const isSavingEmailSettings = ref(false);
+const isSendingTestEmail = ref(false);
+const emailSettingsMessage = ref('');
+const emailSettingsMessageTone = ref<'success' | 'error'>('success');
 
 const newUser = ref({ email: '', password: '', roles: ['ReadOnly'] as string[] });
 const draftRoles = ref<Record<string, string[]>>({});
@@ -184,6 +235,112 @@ const saveBranding = async () => {
   }
 };
 
+const isValidEmail = (value: string) => /^\S+@\S+\.\S+$/.test(value);
+
+const loadEmailSettings = async () => {
+  const data = (await api.get('/admin/email-settings')).data as EmailSettingsDto;
+  emailEnabled.value = data.enabled;
+  smtpHost.value = data.smtpHost || '';
+  smtpPort.value = data.smtpPort ? String(data.smtpPort) : '';
+  smtpSecure.value = data.smtpSecure;
+  smtpUser.value = data.smtpUser || '';
+  hasSmtpPassword.value = data.hasPassword;
+  smtpPassword.value = '';
+  fromName.value = data.fromName || '';
+  fromEmail.value = data.fromEmail || '';
+  replyTo.value = data.replyTo || '';
+};
+
+const saveEmailSettings = async () => {
+  emailSettingsMessage.value = '';
+
+  const portText = smtpPort.value.trim();
+  const parsedPort = portText ? Number(portText) : null;
+  if (portText && (!Number.isInteger(parsedPort) || Number(parsedPort) < 1 || Number(parsedPort) > 65535)) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = 'SMTP port must be an integer between 1 and 65535.';
+    return;
+  }
+
+  if (fromEmail.value.trim() && !isValidEmail(fromEmail.value.trim())) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = 'From email is invalid.';
+    return;
+  }
+
+  if (replyTo.value.trim() && !isValidEmail(replyTo.value.trim())) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = 'Reply-to email is invalid.';
+    return;
+  }
+
+  if (emailEnabled.value) {
+    if (!smtpHost.value.trim() || !smtpPort.value.trim() || !fromName.value.trim() || !fromEmail.value.trim()) {
+      emailSettingsMessageTone.value = 'error';
+      emailSettingsMessage.value = 'SMTP host, port, from name, and from email are required when email is enabled.';
+      return;
+    }
+    if (!hasSmtpPassword.value && !smtpPassword.value.trim()) {
+      emailSettingsMessageTone.value = 'error';
+      emailSettingsMessage.value = 'SMTP password is required when enabling email.';
+      return;
+    }
+  }
+
+  const payload: EmailSettingsUpdateDto = {
+    enabled: emailEnabled.value,
+    smtpHost: smtpHost.value.trim() || null,
+    smtpPort: parsedPort,
+    smtpSecure: smtpSecure.value,
+    smtpUser: smtpUser.value.trim() || null,
+    smtpPassword: smtpPassword.value.trim() || null,
+    fromName: fromName.value.trim() || null,
+    fromEmail: fromEmail.value.trim() || null,
+    replyTo: replyTo.value.trim() || null
+  };
+
+  isSavingEmailSettings.value = true;
+  try {
+    const data = (await api.put('/admin/email-settings', payload)).data as EmailSettingsDto;
+    hasSmtpPassword.value = data.hasPassword;
+    smtpPassword.value = '';
+    emailSettingsMessageTone.value = 'success';
+    emailSettingsMessage.value = 'Email settings saved.';
+  } catch (error: any) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = error?.response?.data?.message || 'Unable to save email settings.';
+  } finally {
+    isSavingEmailSettings.value = false;
+  }
+};
+
+const sendTestEmail = async () => {
+  emailSettingsMessage.value = '';
+  if (!testToEmail.value.trim() || !isValidEmail(testToEmail.value.trim())) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = 'Enter a valid test email address.';
+    return;
+  }
+
+  isSendingTestEmail.value = true;
+  try {
+    const payload: EmailSettingsTestDto = { toEmail: testToEmail.value.trim() };
+    const result = (await api.post('/admin/email-settings/test', payload)).data as { ok: boolean; error?: string };
+    if (result.ok) {
+      emailSettingsMessageTone.value = 'success';
+      emailSettingsMessage.value = 'Test email sent.';
+    } else {
+      emailSettingsMessageTone.value = 'error';
+      emailSettingsMessage.value = result.error || 'Unable to send test email.';
+    }
+  } catch (error: any) {
+    emailSettingsMessageTone.value = 'error';
+    emailSettingsMessage.value = error?.response?.data?.message || 'Unable to send test email.';
+  } finally {
+    isSendingTestEmail.value = false;
+  }
+};
+
 const loadUsers = async () => {
   users.value = (await api.get('/admin/users')).data;
   draftRoles.value = {};
@@ -221,6 +378,6 @@ const resetPassword = async (userId: string) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadHealth(), loadConfig(), loadUsers()]);
+  await Promise.all([loadHealth(), loadConfig(), loadUsers(), loadEmailSettings()]);
 });
 </script>
