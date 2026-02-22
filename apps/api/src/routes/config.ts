@@ -15,6 +15,10 @@ export async function configRoutes(app: FastifyInstance) {
     const body = z
       .object({
         excludeDisputedFromVoting: z.boolean().optional(),
+        emailPasswordResetsEnabled: z.boolean().optional(),
+        emailMeetingReportsEnabled: z.boolean().optional(),
+        emailProxyReceiptEnabled: z.boolean().optional(),
+        emailCertificateNoticesEnabled: z.boolean().optional(),
         appDisplayName: z.string().trim().min(1).max(80).optional(),
         appLogoUrl: z.string().trim().max(500).optional(),
         appIncorporationState: z.string().trim().max(80).optional(),
@@ -24,6 +28,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (
       typeof body.excludeDisputedFromVoting === 'undefined' &&
+      typeof body.emailPasswordResetsEnabled === 'undefined' &&
+      typeof body.emailMeetingReportsEnabled === 'undefined' &&
+      typeof body.emailProxyReceiptEnabled === 'undefined' &&
+      typeof body.emailCertificateNoticesEnabled === 'undefined' &&
       typeof body.appDisplayName === 'undefined' &&
       typeof body.appLogoUrl === 'undefined' &&
       typeof body.appIncorporationState === 'undefined' &&
@@ -45,6 +53,58 @@ export async function configRoutes(app: FastifyInstance) {
         }
       });
       updates.push('excludeDisputedFromVoting');
+    }
+
+    if (typeof body.emailPasswordResetsEnabled === 'boolean') {
+      await prisma.appConfig.upsert({
+        where: { key: 'email.passwordResetsEnabled' },
+        update: { value: body.emailPasswordResetsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
+        create: {
+          key: 'email.passwordResetsEnabled',
+          value: body.emailPasswordResetsEnabled ? 'true' : 'false',
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('email.passwordResetsEnabled');
+    }
+
+    if (typeof body.emailMeetingReportsEnabled === 'boolean') {
+      await prisma.appConfig.upsert({
+        where: { key: 'email.meetingReportsEnabled' },
+        update: { value: body.emailMeetingReportsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
+        create: {
+          key: 'email.meetingReportsEnabled',
+          value: body.emailMeetingReportsEnabled ? 'true' : 'false',
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('email.meetingReportsEnabled');
+    }
+
+    if (typeof body.emailProxyReceiptEnabled === 'boolean') {
+      await prisma.appConfig.upsert({
+        where: { key: 'email.proxyReceiptEnabled' },
+        update: { value: body.emailProxyReceiptEnabled ? 'true' : 'false', updatedById: request.userContext.id },
+        create: {
+          key: 'email.proxyReceiptEnabled',
+          value: body.emailProxyReceiptEnabled ? 'true' : 'false',
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('email.proxyReceiptEnabled');
+    }
+
+    if (typeof body.emailCertificateNoticesEnabled === 'boolean') {
+      await prisma.appConfig.upsert({
+        where: { key: 'email.certificateNoticesEnabled' },
+        update: { value: body.emailCertificateNoticesEnabled ? 'true' : 'false', updatedById: request.userContext.id },
+        create: {
+          key: 'email.certificateNoticesEnabled',
+          value: body.emailCertificateNoticesEnabled ? 'true' : 'false',
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('email.certificateNoticesEnabled');
     }
 
     if (typeof body.appDisplayName === 'string') {

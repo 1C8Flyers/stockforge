@@ -5,6 +5,11 @@ import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
 import { canPostRoles, canWriteRoles, requireRoles } from '../lib/auth.js';
 import { calculateVotingSnapshot, getShareholderActiveShares } from '../lib/voting.js';
+import { buildMeetingReportPdf } from './reports.js';
+import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
+import { meetingReportTemplate } from '../emails/templates/index.js';
+import { sendMailWithAttachments } from '../services/mailer.js';
+import { writeEmailLog } from '../lib/email-log.js';
 
 const ballotChoiceSchema = z.enum(['yes', 'no', 'abstain']);
 const motionTypeSchema = z.enum(['STANDARD', 'ELECTION']);
@@ -335,5 +340,114 @@ export async function meetingRoutes(app: FastifyInstance) {
       presentShares,
       proxyShares
     };
+  });
+
+  app.post('/:id/email-report', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = z
+      .object({
+        recipientMode: z.enum(['officers', 'custom', 'me']).optional().default('officers'),
+        recipients: z.array(z.string().email()).optional()
+      })
+      .parse(request.body);
+
+    const flags = await getEmailPreferenceFlags();
+    if (!flags.meetingReportsEnabled) {
+      return reply.badRequest('Meeting report emails are disabled in email preferences.');
+    }
+
+    const generated = await buildMeetingReportPdf(id);
+    if (!generated) return reply.notFound();
+
+    let recipients: string[] = [];
+    if (body.recipientMode === 'me') {
+      recipients = [request.userContext.email];
+    } else if (body.recipientMode === 'custom') {
+      recipients = (body.recipients || []).map((value) => value.trim()).filter(Boolean);
+    } else {
+      const officers = await prisma.user.findMany({
+        where: {
+          userRoles: {
+            some: {
+              role: {
+                name: { in: [RoleName.Officer, RoleName.Admin] }
+              }
+            }
+          }
+        },
+        select: { email: true }
+      });
+      recipients = officers.map((user) => user.email);
+    }
+
+    recipients = [...new Set(recipients)];
+    if (!recipients.length) {
+      return reply.badRequest('No recipient email addresses were found.');
+    }
+
+    const meetingDate = new Date(generated.meeting.dateTime).toLocaleDateString();
+    const template = meetingReportTemplate({
+      meetingTitle: generated.meeting.title,
+      meetingDate
+    });
+
+    try {
+      await sendMailWithAttachments({
+        to: recipients,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        attachments: [
+          {
+            filename: `meeting-report-${id}.pdf`,
+            content: generated.pdf,
+            contentType: 'application/pdf'
+          }
+        ]
+      });
+
+      await Promise.all(
+        recipients.map((to) =>
+          writeEmailLog({
+            type: 'MEETING_REPORT',
+            to,
+            subject: template.subject,
+            status: 'SENT',
+            relatedEntityType: 'Meeting',
+            relatedEntityId: id
+          })
+        )
+      );
+
+      await audit(prisma, request.userContext.id, 'MEETING_REPORT_EMAILED', 'Meeting', id, {
+        recipientsCount: recipients.length,
+        recipientMode: body.recipientMode,
+        success: true
+      });
+
+      return { ok: true, recipientsCount: recipients.length };
+    } catch (error: any) {
+      const safeError = error?.message || 'Unable to send meeting report email.';
+      await Promise.all(
+        recipients.map((to) =>
+          writeEmailLog({
+            type: 'MEETING_REPORT',
+            to,
+            subject: template.subject,
+            status: 'FAILED',
+            relatedEntityType: 'Meeting',
+            relatedEntityId: id,
+            errorSafe: safeError
+          })
+        )
+      );
+      await audit(prisma, request.userContext.id, 'MEETING_REPORT_EMAILED', 'Meeting', id, {
+        recipientsCount: recipients.length,
+        recipientMode: body.recipientMode,
+        success: false,
+        error: safeError
+      });
+      return reply.code(500).send({ ok: false, error: safeError });
+    }
   });
 }

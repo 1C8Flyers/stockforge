@@ -103,3 +103,26 @@ export async function sendMail(params: { to: string; subject: string; html?: str
     throw asSafeMailerError(error);
   }
 }
+
+export async function sendMailWithAttachments(params: {
+  to: string | string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
+}) {
+  try {
+    const { transporter, fromName, fromEmail, replyTo } = await getMailerConfig();
+    await transporter.sendMail({
+      from: `${fromName} <${fromEmail}>`,
+      to: Array.isArray(params.to) ? params.to.join(', ') : params.to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+      attachments: params.attachments,
+      ...(replyTo ? { replyTo } : {})
+    });
+  } catch (error) {
+    throw asSafeMailerError(error);
+  }
+}

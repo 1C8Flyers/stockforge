@@ -70,6 +70,7 @@ model User {
   auditLogs    AuditLog[]
   appConfigUpdates AppConfig[]
   emailSettingsUpdates EmailSettings[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Role {
@@ -288,4 +289,33 @@ model AuditLog {
   user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailLog {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  type              String
+  to                String
+  subject           String
+  relatedEntityType String?
+  relatedEntityId   String?
+  status            String
+  errorSafe         String?
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([status])
 }

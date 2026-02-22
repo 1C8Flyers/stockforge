@@ -18,7 +18,8 @@ api.interceptors.response.use(
       localStorage.removeItem('authUser');
       const path = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
       const isPublicVerify = path.startsWith('/verify/');
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isPublicVerify) {
+      const isPublicReset = path === '/request-password-reset' || path === '/reset-password';
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isPublicVerify && !isPublicReset) {
         window.location.href = '/login';
       }
     }

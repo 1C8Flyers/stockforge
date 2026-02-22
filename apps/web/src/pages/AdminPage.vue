@@ -18,6 +18,23 @@
           <input type="checkbox" v-model="excludeDisputed" class="h-4 w-4 rounded border-slate-300" />
           Exclude disputed lots from voting
         </label>
+        <h4 class="mt-4 text-sm font-semibold text-slate-900">Email Preferences</h4>
+        <label class="mt-2 flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" v-model="emailPasswordResetsEnabled" class="h-4 w-4 rounded border-slate-300" />
+          Password reset emails enabled
+        </label>
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" v-model="emailMeetingReportsEnabled" class="h-4 w-4 rounded border-slate-300" />
+          Meeting report emails enabled
+        </label>
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" v-model="emailProxyReceiptEnabled" class="h-4 w-4 rounded border-slate-300" />
+          Proxy receipt emails enabled
+        </label>
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" v-model="emailCertificateNoticesEnabled" class="h-4 w-4 rounded border-slate-300" />
+          Certificate notice emails enabled
+        </label>
         <Button class="mt-3" :loading="isSavingConfig" @click="saveConfig">Save config</Button>
       </Card>
     </div>
@@ -121,6 +138,37 @@
         </table>
       </div>
     </Card>
+
+    <Card class="p-0">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <h3 class="font-semibold text-slate-900">Email Logs (Last 100)</h3>
+        <Button variant="secondary" @click="loadEmailLogs">Refresh logs</Button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">When</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Type</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">To</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Subject</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Error</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            <tr v-for="log in emailLogs" :key="log.id">
+              <td class="px-4 py-3 text-sm text-slate-700">{{ new Date(log.createdAt).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ log.type }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ log.to }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ log.subject }}</td>
+              <td class="px-4 py-3 text-sm" :class="log.status === 'SENT' ? 'text-emerald-700' : 'text-rose-700'">{{ log.status }}</td>
+              <td class="px-4 py-3 text-sm text-slate-700">{{ log.errorSafe || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
   </section>
 </template>
 
@@ -146,7 +194,12 @@ const appDisplayName = ref('StockForge');
 const appLogoUrl = ref('');
 const appIncorporationState = ref('');
 const appPublicBaseUrl = ref('');
+const emailPasswordResetsEnabled = ref(false);
+const emailMeetingReportsEnabled = ref(true);
+const emailProxyReceiptEnabled = ref(false);
+const emailCertificateNoticesEnabled = ref(false);
 const users = ref<any[]>([]);
+const emailLogs = ref<any[]>([]);
 const passwords = ref<Record<string, string>>({});
 const isSavingConfig = ref(false);
 const isSavingBranding = ref(false);
@@ -182,6 +235,10 @@ const loadConfig = async () => {
   appLogoUrl.value = cfg.appLogoUrl || '';
   appIncorporationState.value = cfg.appIncorporationState || '';
   appPublicBaseUrl.value = cfg.appPublicBaseUrl || '';
+  emailPasswordResetsEnabled.value = cfg['email.passwordResetsEnabled'] === 'true';
+  emailMeetingReportsEnabled.value = cfg['email.meetingReportsEnabled'] === 'true' || typeof cfg['email.meetingReportsEnabled'] === 'undefined';
+  emailProxyReceiptEnabled.value = cfg['email.proxyReceiptEnabled'] === 'true';
+  emailCertificateNoticesEnabled.value = cfg['email.certificateNoticesEnabled'] === 'true';
 };
 
 const saveConfig = async () => {
@@ -192,7 +249,11 @@ const saveConfig = async () => {
       appDisplayName: appDisplayName.value.trim() || 'StockForge',
       appLogoUrl: appLogoUrl.value.trim(),
       appIncorporationState: appIncorporationState.value.trim(),
-      appPublicBaseUrl: appPublicBaseUrl.value.trim()
+      appPublicBaseUrl: appPublicBaseUrl.value.trim(),
+      emailPasswordResetsEnabled: emailPasswordResetsEnabled.value,
+      emailMeetingReportsEnabled: emailMeetingReportsEnabled.value,
+      emailProxyReceiptEnabled: emailProxyReceiptEnabled.value,
+      emailCertificateNoticesEnabled: emailCertificateNoticesEnabled.value
     })).data;
     excludeDisputed.value = data.excludeDisputedFromVoting === 'true';
   } finally {
@@ -349,6 +410,10 @@ const loadUsers = async () => {
   }
 };
 
+const loadEmailLogs = async () => {
+  emailLogs.value = (await api.get('/admin/email-logs')).data;
+};
+
 const createUser = async () => {
   await api.post('/admin/users', newUser.value);
   newUser.value = { email: '', password: '', roles: ['ReadOnly'] };
@@ -378,6 +443,6 @@ const resetPassword = async (userId: string) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadHealth(), loadConfig(), loadUsers(), loadEmailSettings()]);
+  await Promise.all([loadHealth(), loadConfig(), loadUsers(), loadEmailSettings(), loadEmailLogs()]);
 });
 </script>

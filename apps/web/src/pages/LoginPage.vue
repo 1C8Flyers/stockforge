@@ -7,6 +7,7 @@
         <Input v-model="email" label="Email" type="email" />
         <Input v-model="password" label="Password" type="password" />
         <Button type="submit">Sign in</Button>
+        <RouterLink to="/request-password-reset" class="text-sm text-brand-700 hover:underline">Forgot password?</RouterLink>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       </form>
     </Card>
@@ -15,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import Button from '../components/ui/Button.vue';

@@ -256,4 +256,11 @@ export async function adminRoutes(app: FastifyInstance) {
       return { ok: false, error: safeMessage };
     }
   });
+
+  app.get('/email-logs', { preHandler: requireRoles(RoleName.Admin) }, async () => {
+    return prisma.emailLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+  });
 }

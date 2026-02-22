@@ -7,6 +7,10 @@ import QRCode from 'qrcode';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
+import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
+import { certificateNoticeTemplate } from '../emails/templates/index.js';
+import { sendMailWithAttachments } from '../services/mailer.js';
+import { writeEmailLog } from '../lib/email-log.js';
 
 function ownerName(owner: { firstName: string | null; lastName: string | null; entityName: string | null }) {
   return owner.entityName || `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim();
@@ -309,5 +313,107 @@ export async function certificateRoutes(app: FastifyInstance) {
     reply.header('Cache-Control', 'no-store');
     reply.header('Content-Disposition', `inline; filename="certificate-${sanitizeFilePart(certificateNumber)}.pdf"`);
     return reply.send(pdf);
+  });
+
+  app.post('/lots/:lotId/email', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const { lotId } = z.object({ lotId: z.string() }).parse(request.params);
+    const flags = await getEmailPreferenceFlags();
+    if (!flags.certificateNoticesEnabled) {
+      return reply.badRequest('Certificate notice emails are disabled in email preferences.');
+    }
+
+    const lot = await prisma.shareLot.findUnique({
+      where: { id: lotId },
+      include: { owner: true }
+    });
+    if (!lot) return reply.notFound();
+    if (lot.status !== LotStatus.Active) {
+      return reply.badRequest('Only Active lots can be emailed as certificates.');
+    }
+
+    const recipientEmail = (lot.owner.email || '').trim();
+    if (!recipientEmail) {
+      return reply.badRequest('Shareholder does not have an email address.');
+    }
+
+    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl'] } } });
+    const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
+    const appIncorporationState = cfg.find((c) => c.key === 'appIncorporationState')?.value || '';
+    const appPublicBaseUrl = cfg.find((c) => c.key === 'appPublicBaseUrl')?.value || '';
+    const certificateNumber = lot.certificateNumber || lot.id;
+    const issuedDate = lot.acquiredDate || lot.createdAt;
+    const verificationId = verificationIdForLot(lot.id);
+    const signature = signVerificationId(verificationId);
+    const baseForLinks = appPublicBaseUrl.trim() ? normalizeBaseUrl(appPublicBaseUrl) : normalizeBaseUrl(appBaseUrl(request));
+    const verificationUrl = `${baseForLinks}/verify/certificate/${encodeURIComponent(verificationId)}?sig=${signature}`;
+    const verificationQrPng = await QRCode.toBuffer(verificationUrl, { width: 256, margin: 1 });
+    const pdf = await buildCertificatePdf({
+      appName,
+      appIncorporationState,
+      certificateNumber,
+      ownerDisplayName: ownerName(lot.owner),
+      shares: lot.shares,
+      issuedDate,
+      lotId: lot.id,
+      printLabel: 'ORIGINAL',
+      verificationId,
+      verificationUrl,
+      verificationQrPng
+    });
+
+    const template = certificateNoticeTemplate({
+      certificateNumber,
+      verificationUrl,
+      verificationId
+    });
+
+    try {
+      await sendMailWithAttachments({
+        to: recipientEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        attachments: [
+          {
+            filename: `certificate-${sanitizeFilePart(certificateNumber)}.pdf`,
+            content: pdf,
+            contentType: 'application/pdf'
+          }
+        ]
+      });
+
+      await writeEmailLog({
+        type: 'CERTIFICATE',
+        to: recipientEmail,
+        subject: template.subject,
+        status: 'SENT',
+        relatedEntityType: 'ShareLot',
+        relatedEntityId: lot.id
+      });
+
+      await audit(prisma, request.userContext.id, 'CERTIFICATE_EMAILED', 'ShareLot', lot.id, {
+        shareholderId: lot.ownerId,
+        success: true
+      });
+
+      return { ok: true };
+    } catch (error: any) {
+      const safeError = error?.message || 'Unable to send certificate email.';
+      await writeEmailLog({
+        type: 'CERTIFICATE',
+        to: recipientEmail,
+        subject: template.subject,
+        status: 'FAILED',
+        relatedEntityType: 'ShareLot',
+        relatedEntityId: lot.id,
+        errorSafe: safeError
+      });
+      await audit(prisma, request.userContext.id, 'CERTIFICATE_EMAILED', 'ShareLot', lot.id, {
+        shareholderId: lot.ownerId,
+        success: false,
+        error: safeError
+      });
+      return reply.code(500).send({ ok: false, error: safeError });
+    }
   });
 }

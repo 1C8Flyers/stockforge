@@ -10,11 +10,15 @@ import AuditLogPage from './pages/AuditLogPage.vue';
 import AdminPage from './pages/AdminPage.vue';
 import UserManualPage from './pages/UserManualPage.vue';
 import CertificateVerifyPage from './pages/CertificateVerifyPage.vue';
+import RequestPasswordResetPage from './pages/RequestPasswordResetPage.vue';
+import ResetPasswordPage from './pages/ResetPasswordPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginPage, meta: { title: 'Login' } },
+    { path: '/request-password-reset', component: RequestPasswordResetPage, meta: { title: 'Request Password Reset' } },
+    { path: '/reset-password', component: ResetPasswordPage, meta: { title: 'Reset Password' } },
     { path: '/', component: DashboardPage, meta: { title: 'Dashboard' } },
     { path: '/shareholders', component: ShareholdersPage, meta: { title: 'Shareholders' } },
     { path: '/lots', component: LotsPage, meta: { title: 'Lots' } },
@@ -54,6 +58,7 @@ router.beforeEach((to) => {
   }
 
   if (pathLower.startsWith('/verify/')) return;
+  if (to.path === '/request-password-reset' || to.path === '/reset-password') return;
   const token = localStorage.getItem('token');
   if (to.path === '/login' && token) return '/';
   if (to.path !== '/login' && !token) return '/login';

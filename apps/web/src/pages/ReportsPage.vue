@@ -15,7 +15,10 @@
         <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.csv?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.csv`)">Meeting Proxy CSV</Button>
         <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-proxy.pdf?meetingId=${meetingId}`, `meeting-proxy-${meetingId}.pdf`)">Meeting Proxy PDF</Button>
         <Button v-if="meetingId" variant="secondary" @click="download(`/reports/meeting-report.pdf?meetingId=${meetingId}`, `meeting-report-${meetingId}.pdf`)">Meeting Report PDF</Button>
+        <Button v-if="meetingId" variant="secondary" :loading="isEmailingReport" @click="emailMeetingReport('officers')">Email Meeting Report</Button>
+        <Button v-if="meetingId" variant="ghost" :loading="isEmailingReport" @click="emailMeetingReport('me')">Send test to me</Button>
       </div>
+      <p v-if="emailMessage" class="text-sm" :class="emailTone === 'error' ? 'text-red-600' : 'text-emerald-700'">{{ emailMessage }}</p>
     </Card>
   </section>
 </template>
@@ -29,6 +32,9 @@ import Select from '../components/ui/Select.vue';
 
 const meetingId = ref('');
 const meetings = ref<any[]>([]);
+const isEmailingReport = ref(false);
+const emailMessage = ref('');
+const emailTone = ref<'success' | 'error'>('success');
 
 const download = async (url: string, fallbackFilename: string) => {
   const response = await api.get(url, { responseType: 'blob' });
@@ -43,6 +49,24 @@ const download = async (url: string, fallbackFilename: string) => {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(blobUrl);
+};
+
+const emailMeetingReport = async (mode: 'officers' | 'me') => {
+  if (!meetingId.value) return;
+  isEmailingReport.value = true;
+  emailMessage.value = '';
+  try {
+    const { data } = await api.post(`/meetings/${meetingId.value}/email-report`, {
+      recipientMode: mode
+    });
+    emailTone.value = 'success';
+    emailMessage.value = data?.ok ? `Meeting report emailed (${data.recipientsCount || 0} recipient${data.recipientsCount === 1 ? '' : 's'}).` : 'Meeting report email completed.';
+  } catch (error: any) {
+    emailTone.value = 'error';
+    emailMessage.value = error?.response?.data?.message || error?.response?.data?.error || 'Unable to email meeting report.';
+  } finally {
+    isEmailingReport.value = false;
+  }
 };
 
 onMounted(async () => {

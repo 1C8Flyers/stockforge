@@ -8,6 +8,7 @@
     <p v-if="!canWrite" class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">Read-only mode: create/edit actions are disabled.</p>
 
     <p v-if="printError" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ printError }}</p>
+    <p v-if="emailMessage" class="rounded-lg border p-3 text-sm" :class="emailTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'">{{ emailMessage }}</p>
 
     <Teleport to="body">
       <div v-if="canWrite && formOpen" class="fixed inset-0 z-50">
@@ -50,7 +51,7 @@
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Owner</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Certificate</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Shares</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Status</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Source</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Notes</th><th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Actions</th></tr></thead>
           <tbody class="divide-y divide-slate-200 bg-white">
-            <tr v-for="l in filteredRows" :key="l.id"><td class="px-4 py-3 text-sm">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td class="px-4 py-3 text-sm">{{ l.certificateNumber || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.shares }}</td><td class="px-4 py-3 text-sm">{{ l.status }}</td><td class="px-4 py-3 text-sm">{{ l.source || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.notes || '—' }}</td><td class="px-4 py-3 text-right"><div class="inline-flex gap-1"><Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'original')">Original</Button><Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'reprint')">Reprint</Button><Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button></div></td></tr>
+            <tr v-for="l in filteredRows" :key="l.id"><td class="px-4 py-3 text-sm">{{ l.owner.entityName || `${l.owner.firstName || ''} ${l.owner.lastName || ''}` }}</td><td class="px-4 py-3 text-sm">{{ l.certificateNumber || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.shares }}</td><td class="px-4 py-3 text-sm">{{ l.status }}</td><td class="px-4 py-3 text-sm">{{ l.source || '—' }}</td><td class="px-4 py-3 text-sm">{{ l.notes || '—' }}</td><td class="px-4 py-3 text-right"><div class="inline-flex gap-1"><Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'original')">Original</Button><Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'reprint')">Reprint</Button><Button v-if="canPrint && emailCertificateNoticesEnabled" type="button" variant="ghost" :disabled="l.status !== 'Active' || !l.owner?.email || emailingLotId === l.id" @click="emailCertificate(l)">Email</Button><Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -62,6 +63,7 @@
           <div class="mt-2 inline-flex gap-2">
             <Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'original')">Original</Button>
             <Button v-if="canPrint" type="button" variant="ghost" :disabled="l.status !== 'Active' || printingLotId === l.id" @click="printCertificate(l, 'reprint')">Reprint</Button>
+            <Button v-if="canPrint && emailCertificateNoticesEnabled" type="button" variant="ghost" :disabled="l.status !== 'Active' || !l.owner?.email || emailingLotId === l.id" @click="emailCertificate(l)">Email</Button>
             <Button v-if="canWrite" type="button" variant="ghost" @click="editLot(l)">Edit</Button>
           </div>
         </article>
@@ -87,6 +89,10 @@ const editingId = ref<string | null>(null);
 const formOpen = ref(false);
 const printError = ref('');
 const printingLotId = ref('');
+const emailingLotId = ref('');
+const emailCertificateNoticesEnabled = ref(false);
+const emailMessage = ref('');
+const emailTone = ref<'success' | 'error'>('success');
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canPrint = computed(() => auth.canPost);
@@ -103,6 +109,8 @@ const filteredRows = computed(() => {
 const load = async () => {
   rows.value = (await api.get('/lots')).data;
   shareholders.value = (await api.get('/shareholders')).data;
+  const cfg = (await api.get('/config')).data;
+  emailCertificateNoticesEnabled.value = cfg['email.certificateNoticesEnabled'] === 'true';
 };
 
 const clearForm = () => {
@@ -137,6 +145,7 @@ const extractPrintError = async (error: any) => {
 
 const printCertificate = async (lot: any, mode: 'original' | 'reprint') => {
   printError.value = '';
+  emailMessage.value = '';
   printingLotId.value = lot.id;
   try {
     const response = await api.get(`/certificates/lots/${lot.id}.pdf`, { params: { mode }, responseType: 'blob' });
@@ -148,6 +157,22 @@ const printCertificate = async (lot: any, mode: 'original' | 'reprint') => {
     printError.value = await extractPrintError(error);
   } finally {
     printingLotId.value = '';
+  }
+};
+
+const emailCertificate = async (lot: any) => {
+  emailMessage.value = '';
+  printError.value = '';
+  emailingLotId.value = lot.id;
+  try {
+    const { data } = await api.post(`/certificates/lots/${lot.id}/email`);
+    emailTone.value = 'success';
+    emailMessage.value = data?.ok ? 'Certificate email sent.' : 'Certificate email request completed.';
+  } catch (error: any) {
+    emailTone.value = 'error';
+    emailMessage.value = error?.response?.data?.message || error?.response?.data?.error || 'Unable to email certificate.';
+  } finally {
+    emailingLotId.value = '';
   }
 };
 
