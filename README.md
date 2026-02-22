@@ -104,7 +104,7 @@ Environment/CORS for proxy deployment:
 - Voting: `Treasury` lots are excluded from voting; owner exclusion includes `Inactive`, `DeceasedOutstanding`, and `DeceasedSurrendered`
 - Transfers: explicit Retired Shares from/to option, notes field, and draft `Post / Edit / Cancel` actions
 - Admin/Settings: user + role management, password reset, voting config toggle, app display name/logo controls, and system health/migration summary
-- Auth/Session: stale JWT sessions are rejected after DB resets and web auto-redirects to login on API 401 responses
+- Auth/Session: stale JWT sessions are rejected after DB resets and web auto-redirects to login on API 401 responses (public certificate verification routes are excluded)
 - Meetings/Votes: attendance-driven per-shareholder ballot entry with automatic share-weighted vote totals
 - Meetings/Votes: election vote type with office + candidates and candidate-level share tallying
 - Meetings/Votes: election motions report winners/totals (not Passed/Failed)
@@ -118,6 +118,8 @@ Environment/CORS for proxy deployment:
 - Certificates: each printed certificate includes a verification ID and QR link to public verification page
 - Certificates: verification endpoint checks signed query parameter to detect tampered verification links
 - Certificates: verification link base URL source priority is `appPublicBaseUrl` (Admin setting), then `PUBLIC_APP_BASE_URL`, then request-derived host/origin fallback
+- Certificates: frontend accepts canonical and legacy verification link forms (`/verify/certificate/:id`, `/verify/:id`, `/verify/stock/:id`) and normalizes them to the canonical route
+- Certificates: hash-style/older scanner URL variants containing `CERT-...` are normalized to the public verification page
 - Reports: meeting report PDF capturing attendance, proxies, motions, and detailed vote outcomes
 
 ## Troubleshooting
@@ -134,7 +136,7 @@ After updating, rebuild web image:
 
 ### Vite host blocked (`enterprise.local is not allowed`)
 Fix now included in [apps/web/vite.config.ts](apps/web/vite.config.ts):
-- `preview.allowedHosts` includes `enterprise.local`.
+- `preview.allowedHosts` includes `enterprise.local` and `sfdemo.manring.co`.
 
 ## UI Modernization (apps/web)
 
@@ -148,7 +150,7 @@ Tailwind setup files:
 
 Layout shell usage:
 - [apps/web/src/layouts/AppShell.vue](apps/web/src/layouts/AppShell.vue) provides desktop sidebar, mobile drawer nav, sticky header, and logout.
-- [apps/web/src/App.vue](apps/web/src/App.vue) applies `AppShell` to all routes except `/login`.
+- [apps/web/src/App.vue](apps/web/src/App.vue) applies `AppShell` to all routes except `/login` and public `/verify/*` routes.
 - Shell now spans full browser width and supports configurable app name/logo from Admin settings.
 
 Reusable UI primitives:

@@ -106,6 +106,8 @@ Printing certificates:
 - Certificate PDFs include a `State of Incorporation` line under the corporation name when set in Admin branding.
 - Certificate PDFs include a `Verification ID`, signed verification URL, and QR code.
 - Anyone can open the QR link to the public verification page and confirm certificate authenticity.
+- Legacy QR URL variants are also supported and automatically normalized to the verification page.
+- Public verification links remain accessible without login even when a previously saved session token is expired.
 - Only lots with status `Active` are printable; non-active lots return a clear message.
 
 ### Step C — Draft transfer

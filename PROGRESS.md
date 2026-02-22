@@ -93,4 +93,7 @@
 	  - QR code on certificate links to public verification page
 	  - signed verification query parameter validated by API (tamper check)
 	  - public web route added for certificate verification without login
+	  - compatibility aliases added for legacy verification paths (`/verify/:id`, `/verify/stock/:id`)
+	  - path/hash URL normalization added for older scanner URL variants containing `CERT-...`
+	  - public verification flow hardened to avoid forced login redirects caused by stale stored JWTs
 	  - Admin setting added for `Public app URL` to control certificate verification link base
