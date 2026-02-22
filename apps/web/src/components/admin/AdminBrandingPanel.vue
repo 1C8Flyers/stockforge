@@ -13,6 +13,8 @@
       <Input v-model="store.config.appLogoUrl" label="Logo URL" placeholder="https://..." />
       <Input v-model="store.config.appIncorporationState" label="State of incorporation" placeholder="Wyoming" />
       <Input v-model="store.config.appPublicBaseUrl" label="Public app URL" placeholder="https://enterprise.local:15173" />
+      <Input v-model="store.config.certificateSecretaryName" label="Certificate Secretary name" placeholder="Jane Doe" />
+      <Input v-model="store.config.certificatePresidentName" label="Certificate President name" placeholder="John Doe" />
     </div>
 
     <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">

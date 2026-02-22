@@ -22,7 +22,9 @@ export async function configRoutes(app: FastifyInstance) {
         appDisplayName: z.string().trim().min(1).max(80).optional(),
         appLogoUrl: z.string().trim().max(500).optional(),
         appIncorporationState: z.string().trim().max(80).optional(),
-        appPublicBaseUrl: z.string().trim().max(500).optional()
+        appPublicBaseUrl: z.string().trim().max(500).optional(),
+        certificateSecretaryName: z.string().trim().max(120).optional(),
+        certificatePresidentName: z.string().trim().max(120).optional()
       })
       .parse(request.body);
 
@@ -35,7 +37,9 @@ export async function configRoutes(app: FastifyInstance) {
       typeof body.appDisplayName === 'undefined' &&
       typeof body.appLogoUrl === 'undefined' &&
       typeof body.appIncorporationState === 'undefined' &&
-      typeof body.appPublicBaseUrl === 'undefined'
+      typeof body.appPublicBaseUrl === 'undefined' &&
+      typeof body.certificateSecretaryName === 'undefined' &&
+      typeof body.certificatePresidentName === 'undefined'
     ) {
       return request.server.httpErrors.badRequest('No config fields provided');
     }
@@ -149,6 +153,32 @@ export async function configRoutes(app: FastifyInstance) {
         }
       });
       updates.push('appPublicBaseUrl');
+    }
+
+    if (typeof body.certificateSecretaryName === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'certificateSecretaryName' },
+        update: { value: body.certificateSecretaryName, updatedById: request.userContext.id },
+        create: {
+          key: 'certificateSecretaryName',
+          value: body.certificateSecretaryName,
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('certificateSecretaryName');
+    }
+
+    if (typeof body.certificatePresidentName === 'string') {
+      await prisma.appConfig.upsert({
+        where: { key: 'certificatePresidentName' },
+        update: { value: body.certificatePresidentName, updatedById: request.userContext.id },
+        create: {
+          key: 'certificatePresidentName',
+          value: body.certificatePresidentName,
+          updatedById: request.userContext.id
+        }
+      });
+      updates.push('certificatePresidentName');
     }
 
     const rows = await prisma.appConfig.findMany();

@@ -28,6 +28,8 @@ export const useAdminStore = defineStore('admin', {
       appLogoUrl: '',
       appIncorporationState: '',
       appPublicBaseUrl: '',
+      certificateSecretaryName: '',
+      certificatePresidentName: '',
       emailPasswordResetsEnabled: false,
       emailMeetingReportsEnabled: true,
       emailProxyReceiptEnabled: false,
@@ -192,6 +194,8 @@ export const useAdminStore = defineStore('admin', {
         this.config.appLogoUrl = cfg.appLogoUrl || '';
         this.config.appIncorporationState = cfg.appIncorporationState || '';
         this.config.appPublicBaseUrl = cfg.appPublicBaseUrl || '';
+        this.config.certificateSecretaryName = cfg.certificateSecretaryName || '';
+        this.config.certificatePresidentName = cfg.certificatePresidentName || '';
         this.config.emailPasswordResetsEnabled = boolFromConfig(cfg['email.passwordResetsEnabled'], false);
         this.config.emailMeetingReportsEnabled =
           cfg['email.meetingReportsEnabled'] === undefined ? true : boolFromConfig(cfg['email.meetingReportsEnabled']);
@@ -217,13 +221,17 @@ export const useAdminStore = defineStore('admin', {
           appDisplayName: this.config.appDisplayName.trim() || 'StockForge',
           appLogoUrl: this.config.appLogoUrl.trim(),
           appIncorporationState: this.config.appIncorporationState.trim(),
-          appPublicBaseUrl: this.config.appPublicBaseUrl.trim()
+          appPublicBaseUrl: this.config.appPublicBaseUrl.trim(),
+          certificateSecretaryName: this.config.certificateSecretaryName.trim(),
+          certificatePresidentName: this.config.certificatePresidentName.trim()
         })).data as Record<string, string>;
 
         this.config.appDisplayName = data.appDisplayName || 'StockForge';
         this.config.appLogoUrl = data.appLogoUrl || '';
         this.config.appIncorporationState = data.appIncorporationState || '';
         this.config.appPublicBaseUrl = data.appPublicBaseUrl || '';
+        this.config.certificateSecretaryName = data.certificateSecretaryName || '';
+        this.config.certificatePresidentName = data.certificatePresidentName || '';
 
         window.dispatchEvent(
           new CustomEvent('app-branding-updated', {

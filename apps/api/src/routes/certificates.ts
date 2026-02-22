@@ -84,6 +84,8 @@ function incorporationPhrase(state: string) {
 function buildCertificatePdf(input: {
   appName: string;
   appIncorporationState: string;
+  certificateSecretaryName: string;
+  certificatePresidentName: string;
   certificateNumber: string;
   ownerDisplayName: string;
   shares: number;
@@ -167,6 +169,19 @@ function buildCertificatePdf(input: {
     doc.strokeColor('#94a3b8').lineWidth(1);
     doc.moveTo(leftX, signatureY).lineTo(leftX + lineWidth, signatureY).stroke();
     doc.moveTo(rightX, signatureY).lineTo(rightX + lineWidth, signatureY).stroke();
+
+    if (input.certificateSecretaryName.trim()) {
+      doc.font('Times-Italic').fontSize(14).fillColor('#0f172a').text(input.certificateSecretaryName.trim(), leftX, signatureY - 18, {
+        width: lineWidth,
+        align: 'center'
+      });
+    }
+    if (input.certificatePresidentName.trim()) {
+      doc.font('Times-Italic').fontSize(14).fillColor('#0f172a').text(input.certificatePresidentName.trim(), rightX, signatureY - 18, {
+        width: lineWidth,
+        align: 'center'
+      });
+    }
 
     doc.font('Helvetica').fontSize(10).fillColor('#475569').text('Secretary', leftX, signatureY + 6, { width: lineWidth, align: 'center' });
     doc.font('Helvetica').fontSize(10).fillColor('#475569').text('President', rightX, signatureY + 6, { width: lineWidth, align: 'center' });
@@ -275,10 +290,18 @@ export async function certificateRoutes(app: FastifyInstance) {
       });
     }
 
-    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl'] } } });
+    const cfg = await prisma.appConfig.findMany({
+      where: {
+        key: {
+          in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
+        }
+      }
+    });
     const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
     const appIncorporationState = cfg.find((c) => c.key === 'appIncorporationState')?.value || '';
     const appPublicBaseUrl = cfg.find((c) => c.key === 'appPublicBaseUrl')?.value || '';
+    const certificateSecretaryName = cfg.find((c) => c.key === 'certificateSecretaryName')?.value || '';
+    const certificatePresidentName = cfg.find((c) => c.key === 'certificatePresidentName')?.value || '';
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
     const printLabel = mode === 'reprint' ? 'REPRINT' : 'ORIGINAL';
@@ -290,6 +313,8 @@ export async function certificateRoutes(app: FastifyInstance) {
     const pdf = await buildCertificatePdf({
       appName,
       appIncorporationState,
+      certificateSecretaryName,
+      certificatePresidentName,
       certificateNumber,
       ownerDisplayName: ownerName(lot.owner),
       shares: lot.shares,
@@ -336,10 +361,18 @@ export async function certificateRoutes(app: FastifyInstance) {
       return reply.badRequest('Shareholder does not have an email address.');
     }
 
-    const cfg = await prisma.appConfig.findMany({ where: { key: { in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl'] } } });
+    const cfg = await prisma.appConfig.findMany({
+      where: {
+        key: {
+          in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
+        }
+      }
+    });
     const appName = cfg.find((c) => c.key === 'appDisplayName')?.value || 'StockForge';
     const appIncorporationState = cfg.find((c) => c.key === 'appIncorporationState')?.value || '';
     const appPublicBaseUrl = cfg.find((c) => c.key === 'appPublicBaseUrl')?.value || '';
+    const certificateSecretaryName = cfg.find((c) => c.key === 'certificateSecretaryName')?.value || '';
+    const certificatePresidentName = cfg.find((c) => c.key === 'certificatePresidentName')?.value || '';
     const certificateNumber = lot.certificateNumber || lot.id;
     const issuedDate = lot.acquiredDate || lot.createdAt;
     const verificationId = verificationIdForLot(lot.id);
@@ -350,6 +383,8 @@ export async function certificateRoutes(app: FastifyInstance) {
     const pdf = await buildCertificatePdf({
       appName,
       appIncorporationState,
+      certificateSecretaryName,
+      certificatePresidentName,
       certificateNumber,
       ownerDisplayName: ownerName(lot.owner),
       shares: lot.shares,
