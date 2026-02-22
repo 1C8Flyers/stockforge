@@ -7,6 +7,7 @@ import { requireRoles } from '../lib/auth.js';
 import { audit } from '../lib/audit.js';
 import { encryptSecret } from '../lib/email-crypto.js';
 import { getOrCreateEmailSettings } from '../lib/email-settings.js';
+import { writeEmailLog } from '../lib/email-log.js';
 import { resetMailerCache, sendMail, verifyMailer } from '../services/mailer.js';
 
 const createUserSchema = z.object({
@@ -230,13 +231,23 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post('/email-settings/test', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
     const body = emailSettingsTestSchema.parse(request.body);
     const sentAt = new Date().toISOString();
+    const subject = 'StockForge Email Test';
 
     try {
       await verifyMailer();
       await sendMail({
         to: body.toEmail,
-        subject: 'StockForge Email Test',
+        subject,
         text: `This is a test email from StockForge sent at ${sentAt}.`
+      });
+
+      await writeEmailLog({
+        type: 'EMAIL_TEST',
+        to: body.toEmail,
+        subject,
+        status: 'SENT',
+        relatedEntityType: 'Admin',
+        relatedEntityId: request.userContext.id
       });
 
       await audit(prisma, request.userContext.id, 'CREATE', 'EmailTest', 'global', {
@@ -247,6 +258,17 @@ export async function adminRoutes(app: FastifyInstance) {
       return { ok: true };
     } catch (error: any) {
       const safeMessage = error?.message || 'Unable to send email test. Check SMTP configuration.';
+
+      await writeEmailLog({
+        type: 'EMAIL_TEST',
+        to: body.toEmail,
+        subject,
+        status: 'FAILED',
+        relatedEntityType: 'Admin',
+        relatedEntityId: request.userContext.id,
+        errorSafe: safeMessage
+      });
+
       await audit(prisma, request.userContext.id, 'CREATE', 'EmailTest', 'global', {
         toEmail: body.toEmail,
         success: false,

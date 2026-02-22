@@ -1,7 +1,7 @@
 import { prisma } from './db.js';
 
 export async function writeEmailLog(input: {
-  type: 'PASSWORD_RESET' | 'MEETING_REPORT' | 'CERTIFICATE' | 'PROXY_RECEIPT';
+  type: 'PASSWORD_RESET' | 'MEETING_REPORT' | 'CERTIFICATE' | 'PROXY_RECEIPT' | 'EMAIL_TEST';
   to: string;
   subject: string;
   status: 'SENT' | 'FAILED';
