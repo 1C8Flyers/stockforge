@@ -59,6 +59,26 @@
 
       <Card v-if="selectedTenant" class="space-y-4 p-5">
         <h2 class="text-lg font-semibold text-slate-900">Tenant Members: {{ selectedTenant.slug }}</h2>
+
+        <form class="grid gap-3 md:grid-cols-6" @submit.prevent="createTenantUser">
+          <Input v-model="newTenantUser.email" class="md:col-span-2" label="New User Email" type="email" />
+          <Input v-model="newTenantUser.password" class="md:col-span-2" label="Temporary Password" type="password" />
+
+          <div class="md:col-span-2">
+            <span class="text-sm font-medium text-slate-700">Initial Roles</span>
+            <div class="mt-2 flex flex-wrap gap-3 text-sm text-slate-700">
+              <label><input v-model="newTenantUser.roles" type="checkbox" value="Admin" /> Admin</label>
+              <label><input v-model="newTenantUser.roles" type="checkbox" value="Officer" /> Officer</label>
+              <label><input v-model="newTenantUser.roles" type="checkbox" value="Clerk" /> Clerk</label>
+              <label><input v-model="newTenantUser.roles" type="checkbox" value="ReadOnly" /> ReadOnly</label>
+            </div>
+          </div>
+
+          <div class="md:col-span-6">
+            <Button type="submit" :loading="creatingTenantUser">Create Tenant User</Button>
+          </div>
+        </form>
+
         <form class="grid gap-3 md:grid-cols-6" @submit.prevent="saveMembership">
           <label class="block space-y-1.5 md:col-span-2">
             <span class="text-sm font-medium text-slate-700">User</span>
@@ -161,10 +181,16 @@ const selectedTenantId = ref('');
 
 const loading = ref(false);
 const creatingTenant = ref(false);
+const creatingTenantUser = ref(false);
 const savingMembership = ref(false);
 const error = ref('');
 
 const newTenant = ref({ slug: '', name: '' });
+const newTenantUser = ref<{ email: string; password: string; roles: RoleName[] }>({
+  email: '',
+  password: '',
+  roles: ['Admin']
+});
 const membershipDraft = ref<{ userId: string; roles: RoleName[] }>({
   userId: '',
   roles: ['ReadOnly']
@@ -218,6 +244,33 @@ const createTenant = async () => {
     error.value = e?.response?.data?.message || 'Unable to create tenant.';
   } finally {
     creatingTenant.value = false;
+  }
+};
+
+const createTenantUser = async () => {
+  if (!selectedTenantId.value) return;
+  const email = newTenantUser.value.email.trim().toLowerCase();
+  const password = newTenantUser.value.password;
+  if (!email || password.length < 8 || !newTenantUser.value.roles.length) return;
+
+  creatingTenantUser.value = true;
+  error.value = '';
+  try {
+    await api.post(`/system-admin/tenants/${selectedTenantId.value}/users`, {
+      email,
+      password,
+      roles: newTenantUser.value.roles
+    });
+    newTenantUser.value = {
+      email: '',
+      password: '',
+      roles: ['Admin']
+    };
+    await loadAll();
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || 'Unable to create tenant user.';
+  } finally {
+    creatingTenantUser.value = false;
   }
 };
 

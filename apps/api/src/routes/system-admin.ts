@@ -1,6 +1,7 @@
 import { RoleName } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { requireSystemAdmin } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 
@@ -27,6 +28,12 @@ const updateTenantSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must use lowercase letters, numbers, and hyphens only.')
     .optional(),
   name: z.string().trim().min(1).max(120).optional()
+});
+
+const createTenantUserSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8),
+  roles: z.array(z.nativeEnum(RoleName)).min(1)
 });
 
 export async function systemAdminRoutes(app: FastifyInstance) {
@@ -114,6 +121,39 @@ export async function systemAdminRoutes(app: FastifyInstance) {
         }
       }
     });
+  });
+
+  app.post('/tenants/:tenantId/users', { preHandler: requireSystemAdmin }, async (request, reply) => {
+    const { tenantId } = z.object({ tenantId: z.string().min(1) }).parse(request.params);
+    const body = createTenantUserSchema.parse(request.body);
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } });
+    if (!tenant) return reply.notFound('Tenant not found.');
+
+    const existing = await prisma.user.findUnique({ where: { email: body.email }, select: { id: true } });
+    if (existing) {
+      return reply.conflict('User already exists. Use tenant membership assignment below.');
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email: body.email,
+        passwordHash,
+        tenantUsers: {
+          create: {
+            tenantId,
+            roles: body.roles
+          }
+        }
+      },
+      select: {
+        id: true,
+        email: true
+      }
+    });
+
+    return user;
   });
 
   app.get('/tenants/:tenantId/members', { preHandler: requireSystemAdmin }, async (request, reply) => {
