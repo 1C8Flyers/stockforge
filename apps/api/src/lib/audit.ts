@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { DEFAULT_TENANT_ID } from './tenant.js';
 
 export async function audit(
   prisma: PrismaClient,
@@ -6,9 +7,10 @@ export async function audit(
   action: string,
   entityType: string,
   entityId: string,
-  diffJson?: unknown
+  diffJson?: unknown,
+  tenantId = DEFAULT_TENANT_ID
 ) {
   await prisma.auditLog.create({
-    data: { userId, action, entityType, entityId, diffJson: diffJson as object | undefined }
+    data: { tenantId, userId, action, entityType, entityId, diffJson: diffJson as object | undefined }
   });
 }

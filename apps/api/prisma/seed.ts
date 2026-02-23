@@ -5,8 +5,15 @@ import { PrismaClient, RoleName } from '@prisma/client';
 dotenv.config();
 
 const prisma = new PrismaClient();
+const DEFAULT_TENANT_ID = 'default';
 
 async function main() {
+  await prisma.tenant.upsert({
+    where: { id: DEFAULT_TENANT_ID },
+    update: { slug: 'default', name: 'Default' },
+    create: { id: DEFAULT_TENANT_ID, slug: 'default', name: 'Default' }
+  });
+
   for (const name of [RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly]) {
     await prisma.role.upsert({
       where: { name },
@@ -32,10 +39,21 @@ async function main() {
     create: { userId: admin.id, roleId: adminRole.id }
   });
 
+  await prisma.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: DEFAULT_TENANT_ID, userId: admin.id } },
+    update: { roles: [RoleName.Admin] },
+    create: {
+      tenantId: DEFAULT_TENANT_ID,
+      userId: admin.id,
+      roles: [RoleName.Admin]
+    }
+  });
+
   await prisma.appConfig.upsert({
-    where: { key: 'excludeDisputedFromVoting' },
+    where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'excludeDisputedFromVoting' } },
     update: { value: process.env.EXCLUDE_DISPUTED_FROM_VOTING === 'true' ? 'true' : 'false', updatedById: admin.id },
     create: {
+      tenantId: DEFAULT_TENANT_ID,
       key: 'excludeDisputedFromVoting',
       value: process.env.EXCLUDE_DISPUTED_FROM_VOTING === 'true' ? 'true' : 'false',
       updatedById: admin.id

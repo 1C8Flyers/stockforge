@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { RoleName } from '@prisma/client';
+import { BeneficiaryDesignationStatus, ProxyAuthorizationStatus, RoleName } from '@prisma/client';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/db.js';
@@ -9,6 +9,7 @@ import { encryptSecret } from '../lib/email-crypto.js';
 import { getOrCreateEmailSettings } from '../lib/email-settings.js';
 import { writeEmailLog } from '../lib/email-log.js';
 import { resetMailerCache, sendMail, verifyMailer } from '../services/mailer.js';
+import { requireTenantMembership } from '../lib/tenant.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -285,4 +286,96 @@ export async function adminRoutes(app: FastifyInstance) {
       take: 100
     });
   });
+
+  app.get(
+    '/t/:tenantSlug/proxy-requests',
+    { preHandler: [requireRoles(RoleName.Admin), requireTenantMembership] },
+    async (request) => {
+      const tenantId = request.tenantContext!.id;
+      return prisma.proxyAuthorization.findMany({
+        where: { tenantId, status: ProxyAuthorizationStatus.PENDING },
+        include: {
+          shareholder: true,
+          meeting: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+  );
+
+  app.post(
+    '/t/:tenantSlug/proxies/:id/accept',
+    { preHandler: [requireRoles(RoleName.Admin), requireTenantMembership] },
+    async (request, reply) => {
+      const tenantId = request.tenantContext!.id;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+
+      const existing = await prisma.proxyAuthorization.findFirst({ where: { id, tenantId } });
+      if (!existing) return reply.notFound();
+
+      const updated = await prisma.proxyAuthorization.update({
+        where: { id },
+        data: { status: ProxyAuthorizationStatus.ACCEPTED }
+      });
+
+      await audit(prisma, request.userContext.id, 'ACCEPT', 'ProxyAuthorization', id, undefined, tenantId);
+      return updated;
+    }
+  );
+
+  app.post(
+    '/t/:tenantSlug/proxies/:id/reject',
+    { preHandler: [requireRoles(RoleName.Admin), requireTenantMembership] },
+    async (request, reply) => {
+      const tenantId = request.tenantContext!.id;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+
+      const existing = await prisma.proxyAuthorization.findFirst({ where: { id, tenantId } });
+      if (!existing) return reply.notFound();
+
+      const updated = await prisma.proxyAuthorization.update({
+        where: { id },
+        data: { status: ProxyAuthorizationStatus.REJECTED }
+      });
+
+      await audit(prisma, request.userContext.id, 'REJECT', 'ProxyAuthorization', id, undefined, tenantId);
+      return updated;
+    }
+  );
+
+  app.get(
+    '/t/:tenantSlug/designations',
+    { preHandler: [requireRoles(RoleName.Admin), requireTenantMembership] },
+    async (request) => {
+      const tenantId = request.tenantContext!.id;
+      return prisma.beneficiaryDesignation.findMany({
+        where: { tenantId, status: BeneficiaryDesignationStatus.SUBMITTED },
+        include: {
+          shareholder: true,
+          entries: true
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+    }
+  );
+
+  app.post(
+    '/t/:tenantSlug/designations/:id/ack',
+    { preHandler: [requireRoles(RoleName.Admin), requireTenantMembership] },
+    async (request, reply) => {
+      const tenantId = request.tenantContext!.id;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+
+      const existing = await prisma.beneficiaryDesignation.findFirst({ where: { id, tenantId } });
+      if (!existing) return reply.notFound();
+
+      const updated = await prisma.beneficiaryDesignation.update({
+        where: { id },
+        data: { status: BeneficiaryDesignationStatus.ACKNOWLEDGED }
+      });
+
+      await audit(prisma, request.userContext.id, 'ACKNOWLEDGE', 'BeneficiaryDesignation', id, undefined, tenantId);
+      return updated;
+    }
+  );
 }

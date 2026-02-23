@@ -1,13 +1,21 @@
 import { LotStatus, PrismaClient, ShareholderStatus } from '@prisma/client';
+import { DEFAULT_TENANT_ID } from './tenant.js';
 
 export async function getExcludeDisputed(prisma: PrismaClient) {
-  const row = await prisma.appConfig.findUnique({ where: { key: 'excludeDisputedFromVoting' } });
+  const row = await prisma.appConfig.findUnique({
+    where: {
+      tenantId_key: {
+        tenantId: DEFAULT_TENANT_ID,
+        key: 'excludeDisputedFromVoting'
+      }
+    }
+  });
   return row?.value === 'true';
 }
 
 export async function calculateVotingSnapshot(prisma: PrismaClient) {
   const excludeDisputed = await getExcludeDisputed(prisma);
-  const lots = await prisma.shareLot.findMany({ include: { owner: true } });
+  const lots = await prisma.shareLot.findMany({ where: { tenantId: DEFAULT_TENANT_ID }, include: { owner: true } });
 
   let activeVotingShares = 0;
   let excludedByOwner = 0;
@@ -43,7 +51,10 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
 
 export async function getShareholderActiveShares(prisma: PrismaClient, shareholderId: string) {
   const excludeDisputed = await getExcludeDisputed(prisma);
-  const shareholder = await prisma.shareholder.findUnique({ where: { id: shareholderId }, select: { status: true } });
+  const shareholder = await prisma.shareholder.findFirst({
+    where: { id: shareholderId, tenantId: DEFAULT_TENANT_ID },
+    select: { status: true }
+  });
   if (!shareholder) return 0;
   const ownerExcluded =
     shareholder.status === ShareholderStatus.Inactive ||
@@ -51,7 +62,7 @@ export async function getShareholderActiveShares(prisma: PrismaClient, sharehold
     shareholder.status === ShareholderStatus.DeceasedSurrendered;
   if (ownerExcluded) return 0;
 
-  const lots = await prisma.shareLot.findMany({ where: { ownerId: shareholderId } });
+  const lots = await prisma.shareLot.findMany({ where: { ownerId: shareholderId, tenantId: DEFAULT_TENANT_ID } });
   return lots
     .filter((lot) => lot.status === LotStatus.Active || (!excludeDisputed && lot.status === LotStatus.Disputed))
     .reduce((sum, lot) => sum + lot.shares, 0);

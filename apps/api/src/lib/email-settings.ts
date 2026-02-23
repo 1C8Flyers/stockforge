@@ -1,18 +1,18 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
-
-export const EMAIL_SETTINGS_SINGLETON_ID = 'global-email-settings';
+import { DEFAULT_TENANT_ID } from './tenant.js';
 
 export async function getOrCreateEmailSettings(
   prismaOrTx: PrismaClient | Prisma.TransactionClient,
-  updatedById?: string
+  updatedById?: string,
+  tenantId = DEFAULT_TENANT_ID
 ) {
   return prismaOrTx.emailSettings.upsert({
-    where: { id: EMAIL_SETTINGS_SINGLETON_ID },
+    where: { tenantId },
     update: {
       ...(updatedById ? { updatedById } : {})
     },
     create: {
-      id: EMAIL_SETTINGS_SINGLETON_ID,
+      tenantId,
       enabled: false,
       smtpSecure: false,
       ...(updatedById ? { updatedById } : {})

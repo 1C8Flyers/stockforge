@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
+import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
 
 export async function configRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
-    const rows = await prisma.appConfig.findMany();
+    const rows = await prisma.appConfig.findMany({ where: { tenantId: DEFAULT_TENANT_ID } });
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   });
 
@@ -48,9 +49,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.excludeDisputedFromVoting === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { key: 'excludeDisputedFromVoting' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'excludeDisputedFromVoting' } },
         update: { value: body.excludeDisputedFromVoting ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'excludeDisputedFromVoting',
           value: body.excludeDisputedFromVoting ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -61,9 +63,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailPasswordResetsEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { key: 'email.passwordResetsEnabled' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.passwordResetsEnabled' } },
         update: { value: body.emailPasswordResetsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'email.passwordResetsEnabled',
           value: body.emailPasswordResetsEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -74,9 +77,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailMeetingReportsEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { key: 'email.meetingReportsEnabled' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.meetingReportsEnabled' } },
         update: { value: body.emailMeetingReportsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'email.meetingReportsEnabled',
           value: body.emailMeetingReportsEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -87,9 +91,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailProxyReceiptEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { key: 'email.proxyReceiptEnabled' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.proxyReceiptEnabled' } },
         update: { value: body.emailProxyReceiptEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'email.proxyReceiptEnabled',
           value: body.emailProxyReceiptEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -100,9 +105,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailCertificateNoticesEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { key: 'email.certificateNoticesEnabled' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.certificateNoticesEnabled' } },
         update: { value: body.emailCertificateNoticesEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'email.certificateNoticesEnabled',
           value: body.emailCertificateNoticesEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -113,27 +119,28 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.appDisplayName === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'appDisplayName' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appDisplayName' } },
         update: { value: body.appDisplayName, updatedById: request.userContext.id },
-        create: { key: 'appDisplayName', value: body.appDisplayName, updatedById: request.userContext.id }
+        create: { tenantId: DEFAULT_TENANT_ID, key: 'appDisplayName', value: body.appDisplayName, updatedById: request.userContext.id }
       });
       updates.push('appDisplayName');
     }
 
     if (typeof body.appLogoUrl === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'appLogoUrl' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appLogoUrl' } },
         update: { value: body.appLogoUrl, updatedById: request.userContext.id },
-        create: { key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
+        create: { tenantId: DEFAULT_TENANT_ID, key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
       });
       updates.push('appLogoUrl');
     }
 
     if (typeof body.appIncorporationState === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'appIncorporationState' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appIncorporationState' } },
         update: { value: body.appIncorporationState, updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'appIncorporationState',
           value: body.appIncorporationState,
           updatedById: request.userContext.id
@@ -144,9 +151,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.appPublicBaseUrl === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'appPublicBaseUrl' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appPublicBaseUrl' } },
         update: { value: body.appPublicBaseUrl, updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'appPublicBaseUrl',
           value: body.appPublicBaseUrl,
           updatedById: request.userContext.id
@@ -157,9 +165,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.certificateSecretaryName === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'certificateSecretaryName' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'certificateSecretaryName' } },
         update: { value: body.certificateSecretaryName, updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'certificateSecretaryName',
           value: body.certificateSecretaryName,
           updatedById: request.userContext.id
@@ -170,9 +179,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.certificatePresidentName === 'string') {
       await prisma.appConfig.upsert({
-        where: { key: 'certificatePresidentName' },
+        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'certificatePresidentName' } },
         update: { value: body.certificatePresidentName, updatedById: request.userContext.id },
         create: {
+          tenantId: DEFAULT_TENANT_ID,
           key: 'certificatePresidentName',
           value: body.certificatePresidentName,
           updatedById: request.userContext.id
@@ -181,7 +191,7 @@ export async function configRoutes(app: FastifyInstance) {
       updates.push('certificatePresidentName');
     }
 
-    const rows = await prisma.appConfig.findMany();
+    const rows = await prisma.appConfig.findMany({ where: { tenantId: DEFAULT_TENANT_ID } });
     const result = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     await audit(prisma, request.userContext.id, 'UPDATE', 'AppConfig', 'global', { updatedKeys: updates, values: body });
     return result;

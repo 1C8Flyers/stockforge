@@ -11,6 +11,7 @@ import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
 import { certificateNoticeTemplate } from '../emails/templates/index.js';
 import { sendMailWithAttachments } from '../services/mailer.js';
 import { writeEmailLog } from '../lib/email-log.js';
+import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
 
 function ownerName(owner: { firstName: string | null; lastName: string | null; entityName: string | null }) {
   return owner.entityName || `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim();
@@ -292,6 +293,7 @@ export async function certificateRoutes(app: FastifyInstance) {
 
     const cfg = await prisma.appConfig.findMany({
       where: {
+        tenantId: DEFAULT_TENANT_ID,
         key: {
           in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
         }
@@ -363,6 +365,7 @@ export async function certificateRoutes(app: FastifyInstance) {
 
     const cfg = await prisma.appConfig.findMany({
       where: {
+        tenantId: DEFAULT_TENANT_ID,
         key: {
           in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
         }

@@ -19,6 +19,12 @@ api.interceptors.response.use(
       const path = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
       const isPublicVerify = path.startsWith('/verify/');
       const isPublicReset = path === '/request-password-reset' || path === '/reset-password';
+      const portalMatch = typeof window !== 'undefined' ? window.location.pathname.match(/^\/t\/([^/]+)\/portal/i) : null;
+      if (portalMatch) {
+        const tenantSlug = portalMatch[1];
+        window.location.href = `/t/${tenantSlug}/portal/login`;
+        return Promise.reject(error);
+      }
       if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isPublicVerify && !isPublicReset) {
         window.location.href = '/login';
       }

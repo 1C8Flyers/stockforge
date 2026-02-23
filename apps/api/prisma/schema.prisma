@@ -59,6 +59,70 @@ enum MotionType {
   ELECTION
 }
 
+enum ProxyAuthorizationType {
+  MEETING
+  STANDING
+}
+
+enum ProxyAuthorizationScope {
+  GENERAL
+  DIRECTED
+}
+
+enum ProxyAuthorizationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  REVOKED
+}
+
+enum BeneficiaryDesignationStatus {
+  DRAFT
+  SUBMITTED
+  ACKNOWLEDGED
+}
+
+model Tenant {
+  id                      String                    @id
+  slug                    String                    @unique
+  name                    String
+  createdAt               DateTime                  @default(now())
+  tenantUsers             TenantUser[]
+  appConfigs              AppConfig[]
+  emailSettings           EmailSettings[]
+  shareholders            Shareholder[]
+  shareLots               ShareLot[]
+  transfers               Transfer[]
+  transferLines           TransferLine[]
+  meetings                Meeting[]
+  meetingSnapshots        MeetingSnapshot[]
+  proxies                 Proxy[]
+  attendance              Attendance[]
+  motions                 Motion[]
+  votes                   Vote[]
+  attachments             Attachment[]
+  auditLogs               AuditLog[]
+  passwordResetTokens     PasswordResetToken[]
+  emailLogs               EmailLog[]
+  shareholderLinks        ShareholderLink[]
+  proxyAuthorizations     ProxyAuthorization[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  beneficiaryEntries      BeneficiaryDesignationEntry[]
+}
+
+model TenantUser {
+  id        String     @id @default(cuid())
+  tenantId  String
+  userId    String
+  roles     RoleName[] @default([])
+  createdAt DateTime   @default(now())
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
 model User {
   id           String      @id @default(cuid())
   email        String      @unique
@@ -71,6 +135,8 @@ model User {
   appConfigUpdates AppConfig[]
   emailSettingsUpdates EmailSettings[]
   passwordResetTokens PasswordResetToken[]
+  tenantUsers   TenantUser[]
+  shareholderLinks ShareholderLink[]
 }
 
 model Role {
@@ -90,15 +156,21 @@ model UserRole {
 
 model AppConfig {
   id            String   @id @default(cuid())
-  key           String   @unique
+  tenantId      String   @default("default")
+  key           String
   value         String
   updatedById   String?
   updatedAt     DateTime @updatedAt
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   updatedByUser User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
 }
 
 model EmailSettings {
   id            String   @id @default(cuid())
+  tenantId      String   @default("default")
   enabled       Boolean  @default(false)
 
   smtpHost      String?
@@ -113,13 +185,16 @@ model EmailSettings {
 
   updatedById   String?
   updatedAt     DateTime @updatedAt
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   updatedByUser User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([enabled])
+  @@unique([tenantId])
 }
 
 model Shareholder {
   id               String            @id @default(cuid())
+  tenantId         String            @default("default")
   type             ShareholderType
   firstName        String?
   lastName         String?
@@ -142,10 +217,17 @@ model Shareholder {
   attendance       Attendance[]
   proxyGrantor     Proxy[]           @relation("proxyGrantor")
   proxyHolderLinks Proxy[]           @relation("proxyHolderLink")
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  shareholderLinks ShareholderLink[]
+  proxyAuthorizations ProxyAuthorization[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+
+  @@index([tenantId])
 }
 
 model ShareLot {
   id                String     @id @default(cuid())
+  tenantId          String     @default("default")
   ownerId           String
   shares            Int
   status            LotStatus  @default(Active)
@@ -155,14 +237,17 @@ model ShareLot {
   notes             String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   owner             Shareholder @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   transferLines     TransferLine[]
 
   @@index([ownerId])
+  @@index([tenantId])
 }
 
 model Transfer {
   id          String         @id @default(cuid())
+  tenantId    String         @default("default")
   fromOwnerId String?
   toOwnerId   String?
   meetingId   String?
@@ -172,46 +257,62 @@ model Transfer {
   notes       String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   fromOwner   Shareholder?   @relation("transferFrom", fields: [fromOwnerId], references: [id], onDelete: SetNull)
   toOwner     Shareholder?   @relation("transferTo", fields: [toOwnerId], references: [id], onDelete: SetNull)
   lines       TransferLine[]
 
   @@index([status])
+  @@index([tenantId])
 }
 
 model TransferLine {
   id         String   @id @default(cuid())
+  tenantId   String   @default("default")
   transferId String
   lotId      String
   sharesTaken Int
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   lot        ShareLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
 }
 
 model Meeting {
   id         String          @id @default(cuid())
+  tenantId   String          @default("default")
   title      String
   dateTime   DateTime
   snapshotId String?         @unique
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   snapshot   MeetingSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
   attendance Attendance[]
   motions    Motion[]
   proxies    Proxy[]
+  proxyAuthorizations ProxyAuthorization[]
+
+  @@index([tenantId])
 }
 
 model MeetingSnapshot {
   id                String   @id @default(cuid())
+  tenantId          String   @default("default")
   activeVotingShares Int
   excludedShares    Int
   majorityThreshold Int
   rulesJson         Json
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   meeting           Meeting?
+
+  @@index([tenantId])
 }
 
 model Proxy {
   id                       String      @id @default(cuid())
+  tenantId                 String      @default("default")
   meetingId                String
   grantorId                String
   proxyHolderName          String
@@ -222,25 +323,33 @@ model Proxy {
   attachmentId             String?      @unique
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
+  tenant                   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   meeting                  Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   grantor                  Shareholder @relation("proxyGrantor", fields: [grantorId], references: [id], onDelete: Restrict)
   proxyHolderShareholder   Shareholder? @relation("proxyHolderLink", fields: [proxyHolderShareholderId], references: [id], onDelete: SetNull)
   attachment               Attachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
 }
 
 model Attendance {
   id            String      @id @default(cuid())
+  tenantId      String      @default("default")
   meetingId      String
   shareholderId  String
   present        Boolean     @default(false)
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   meeting        Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   shareholder    Shareholder @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, meetingId, shareholderId])
   @@unique([meetingId, shareholderId])
+  @@index([meetingId, shareholderId])
 }
 
 model Motion {
   id        String    @id @default(cuid())
+  tenantId  String    @default("default")
   meetingId String
   title     String
   text      String
@@ -250,12 +359,16 @@ model Motion {
   isClosed  Boolean   @default(false)
   voteRule  VoteRule  @default(SIMPLE_MAJORITY)
   createdAt DateTime  @default(now())
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   votes     Vote[]
+
+  @@index([tenantId])
 }
 
 model Vote {
   id           String     @id @default(cuid())
+  tenantId     String     @default("default")
   motionId      String
   yesShares     Int
   noShares      Int
@@ -263,49 +376,63 @@ model Vote {
   detailsJson   Json?
   result        VoteResult
   createdAt     DateTime   @default(now())
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   motion        Motion     @relation(fields: [motionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Attachment {
   id           String   @id @default(cuid())
+  tenantId     String   @default("default")
   path         String
   originalName String
   mimeType     String
   size         Int
   createdBy    String
   createdAt    DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user         User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   proxy        Proxy?
+
+  @@index([tenantId])
 }
 
 model AuditLog {
   id         String   @id @default(cuid())
+  tenantId   String   @default("default")
   userId     String
   action     String
   entityType String
   entityId   String
   diffJson   Json?
   createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
+  @@index([tenantId])
 }
 
 model PasswordResetToken {
   id        String   @id @default(cuid())
+  tenantId  String   @default("default")
   userId    String
   tokenHash String   @unique
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([tenantId])
 }
 
 model EmailLog {
   id                String   @id @default(cuid())
+  tenantId          String   @default("default")
   createdAt         DateTime @default(now())
   type              String
   to                String
@@ -314,8 +441,88 @@ model EmailLog {
   relatedEntityId   String?
   status            String
   errorSafe         String?
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([createdAt])
   @@index([type])
   @@index([status])
+  @@index([tenantId])
+}
+
+model ShareholderLink {
+  id            String      @id @default(cuid())
+  tenantId      String
+  userId        String
+  shareholderId String
+  verifiedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareholder   Shareholder @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@unique([tenantId, shareholderId])
+}
+
+model ProxyAuthorization {
+  id                       String                   @id @default(cuid())
+  tenantId                 String
+  shareholderId            String
+  proxyType                ProxyAuthorizationType
+  meetingId                String?
+  proxyHolderShareholderId String?
+  proxyHolderName          String?
+  proxyHolderEmail         String?
+  proxyHolderAddress       String?
+  scope                    ProxyAuthorizationScope @default(GENERAL)
+  effectiveAt              DateTime                @default(now())
+  expiresAt                DateTime?
+  status                   ProxyAuthorizationStatus @default(PENDING)
+  signedAt                 DateTime?
+  signatureHash            String?
+  ip                       String?
+  userAgent                String?
+  createdByUserId          String
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  shareholder              Shareholder             @relation(fields: [shareholderId], references: [id], onDelete: Restrict)
+  meeting                  Meeting?                @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, shareholderId])
+  @@index([tenantId, meetingId])
+  @@index([tenantId, status])
+}
+
+model BeneficiaryDesignation {
+  id              String                      @id @default(cuid())
+  tenantId        String
+  shareholderId   String
+  status          BeneficiaryDesignationStatus @default(DRAFT)
+  createdByUserId String
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  tenant          Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  shareholder     Shareholder                 @relation(fields: [shareholderId], references: [id], onDelete: Restrict)
+  entries         BeneficiaryDesignationEntry[]
+
+  @@index([tenantId, shareholderId])
+  @@index([tenantId, status])
+}
+
+model BeneficiaryDesignationEntry {
+  id           String                  @id @default(cuid())
+  tenantId     String
+  designationId String
+  name         String
+  relationship String?
+  email        String?
+  phone        String?
+  address      String?
+  percent      Int
+  createdAt    DateTime                @default(now())
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  designation  BeneficiaryDesignation  @relation(fields: [designationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, designationId])
 }

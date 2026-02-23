@@ -9,6 +9,7 @@ import { passwordResetTemplate } from '../emails/templates/index.js';
 import { sendMail } from '../services/mailer.js';
 import { writeEmailLog } from '../lib/email-log.js';
 import { audit } from '../lib/audit.js';
+import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
 
 function hashToken(raw: string) {
   return crypto.createHash('sha256').update(raw).digest('hex');
@@ -19,7 +20,14 @@ function normalizeBaseUrl(url: string) {
 }
 
 async function resolvePublicAppBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
-  const config = await prisma.appConfig.findUnique({ where: { key: 'appPublicBaseUrl' } });
+  const config = await prisma.appConfig.findUnique({
+    where: {
+      tenantId_key: {
+        tenantId: DEFAULT_TENANT_ID,
+        key: 'appPublicBaseUrl'
+      }
+    }
+  });
   if (config?.value?.trim()) return normalizeBaseUrl(config.value);
 
   const envUrl = (process.env.PUBLIC_APP_BASE_URL || '').trim();

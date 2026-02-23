@@ -12,6 +12,7 @@ import { certificateRoutes } from './certificates.js';
 import { uploadRoutes } from './uploads.js';
 import { auditLogRoutes } from './audit-log.js';
 import { adminRoutes } from './admin.js';
+import { portalRoutes } from './portal.js';
 
 export async function routes(app: FastifyInstance) {
   await app.register(authRoutes, { prefix: '/auth' });
@@ -27,4 +28,5 @@ export async function routes(app: FastifyInstance) {
   await app.register(uploadRoutes, { prefix: '/uploads' });
   await app.register(auditLogRoutes, { prefix: '/audit-log' });
   await app.register(adminRoutes, { prefix: '/admin' });
+  await app.register(portalRoutes, { prefix: '/portal' });
 }

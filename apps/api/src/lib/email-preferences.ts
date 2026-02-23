@@ -1,4 +1,5 @@
 import { prisma } from './db.js';
+import { DEFAULT_TENANT_ID } from './tenant.js';
 
 export const EMAIL_PREF_KEYS = {
   passwordResetsEnabled: 'email.passwordResetsEnabled',
@@ -24,6 +25,7 @@ const DEFAULT_FLAGS: EmailPreferenceFlags = {
 export async function getEmailPreferenceFlags() {
   const rows = await prisma.appConfig.findMany({
     where: {
+      tenantId: DEFAULT_TENANT_ID,
       key: {
         in: Object.values(EMAIL_PREF_KEYS)
       }
