@@ -35,9 +35,10 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '../api';
 import Card from '../components/ui/Card.vue';
+import { getTenantSlug } from '../portalTenant';
 
 const route = useRoute();
-const tenantSlug = computed(() => String(route.params.tenantSlug || 'default'));
+const tenantSlug = computed(() => getTenantSlug(route));
 const data = ref<any>(null);
 const loading = ref(false);
 const error = ref('');

@@ -27,13 +27,15 @@
 import { computed } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { getPortalBasePath, getPortalLoginPath, getTenantSlug } from '../portalTenant';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 
-const tenantSlug = computed(() => String(route.params.tenantSlug || 'default'));
-const basePath = computed(() => `/t/${tenantSlug.value}/portal`);
+const tenantSlug = computed(() => getTenantSlug(route));
+const basePath = computed(() => getPortalBasePath(route));
+const loginPath = computed(() => getPortalLoginPath(route));
 
 const links = computed(() => [
   { to: `${basePath.value}`, label: 'Dashboard' },
@@ -45,6 +47,6 @@ const links = computed(() => [
 
 function logout() {
   auth.clear();
-  router.push(`/t/${tenantSlug.value}/portal/login`);
+  router.push(loginPath.value);
 }
 </script>

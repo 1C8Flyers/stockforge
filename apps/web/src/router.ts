@@ -18,6 +18,7 @@ import PortalHoldingsPage from './pages/PortalHoldingsPage.vue';
 import PortalMeetingsPage from './pages/PortalMeetingsPage.vue';
 import PortalProxiesPage from './pages/PortalProxiesPage.vue';
 import PortalBeneficiariesPage from './pages/PortalBeneficiariesPage.vue';
+import { buildTenantSubdomainUrl } from './portalTenant';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -25,6 +26,12 @@ export const router = createRouter({
     { path: '/login', component: LoginPage, meta: { title: 'Login' } },
     { path: '/request-password-reset', component: RequestPasswordResetPage, meta: { title: 'Request Password Reset' } },
     { path: '/reset-password', component: ResetPasswordPage, meta: { title: 'Reset Password' } },
+    { path: '/portal/login', component: PortalLoginPage, meta: { title: 'Portal Login', portal: true, portalPublic: true } },
+    { path: '/portal', component: PortalDashboardPage, meta: { title: 'Portal Dashboard', portal: true } },
+    { path: '/portal/holdings', component: PortalHoldingsPage, meta: { title: 'Holdings', portal: true } },
+    { path: '/portal/meetings', component: PortalMeetingsPage, meta: { title: 'Meetings', portal: true } },
+    { path: '/portal/proxies', component: PortalProxiesPage, meta: { title: 'Proxies', portal: true } },
+    { path: '/portal/beneficiaries', component: PortalBeneficiariesPage, meta: { title: 'Beneficiaries', portal: true } },
     { path: '/t/:tenantSlug/portal/login', component: PortalLoginPage, meta: { title: 'Portal Login', portal: true, portalPublic: true } },
     { path: '/t/:tenantSlug/portal', component: PortalDashboardPage, meta: { title: 'Portal Dashboard', portal: true } },
     { path: '/t/:tenantSlug/portal/holdings', component: PortalHoldingsPage, meta: { title: 'Holdings', portal: true } },
@@ -53,11 +60,25 @@ router.beforeEach((to) => {
   const pathLower = to.path.toLowerCase();
   const token = localStorage.getItem('token');
   const portalMatch = to.path.match(/^\/t\/([^/]+)\/portal/i);
+  const isHostPortalRoute = pathLower === '/portal' || pathLower.startsWith('/portal/');
 
   if (portalMatch) {
     const tenantSlug = portalMatch[1];
+    const subdomainUrl = buildTenantSubdomainUrl(tenantSlug, to.path.replace(/^\/t\/[^/]+/i, ''));
+    if (subdomainUrl && typeof window !== 'undefined' && window.location.hostname !== `${tenantSlug}.${(import.meta.env.VITE_TENANT_BASE_DOMAIN || '').trim().toLowerCase()}`) {
+      window.location.href = subdomainUrl;
+      return false;
+    }
     const portalLoginPath = `/t/${tenantSlug}/portal/login`;
     const portalHomePath = `/t/${tenantSlug}/portal`;
+    if (to.path === portalLoginPath && token) return portalHomePath;
+    if (to.path !== portalLoginPath && !token) return portalLoginPath;
+    return;
+  }
+
+  if (isHostPortalRoute) {
+    const portalLoginPath = '/portal/login';
+    const portalHomePath = '/portal';
     if (to.path === portalLoginPath && token) return portalHomePath;
     if (to.path !== portalLoginPath && !token) return portalLoginPath;
     return;

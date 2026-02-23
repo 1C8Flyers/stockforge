@@ -25,6 +25,10 @@ api.interceptors.response.use(
         window.location.href = `/t/${tenantSlug}/portal/login`;
         return Promise.reject(error);
       }
+      if (typeof window !== 'undefined' && (path === '/portal' || path.startsWith('/portal/'))) {
+        window.location.href = '/portal/login';
+        return Promise.reject(error);
+      }
       if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isPublicVerify && !isPublicReset) {
         window.location.href = '/login';
       }

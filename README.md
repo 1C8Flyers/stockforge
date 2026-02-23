@@ -46,6 +46,9 @@ NAS env expectations for this profile:
 - `VITE_API_BASE_URL=/api`
 - `CORS_ORIGIN=https://<your-public-domain>`
 - `PUBLIC_APP_BASE_URL=https://<your-public-domain>`
+- Optional tenant subdomain mode:
+   - `TENANT_BASE_DOMAIN=<base-domain>` (API host-based tenant resolution)
+   - `VITE_TENANT_BASE_DOMAIN=<base-domain>` (web redirect from `/t/:slug/portal/*` to subdomain portal URLs)
 
 Default seeded admin (from .env):
 - Email: `ADMIN_EMAIL`

@@ -24,6 +24,7 @@ import { useAuthStore } from '../stores/auth';
 import Card from '../components/ui/Card.vue';
 import Input from '../components/ui/Input.vue';
 import Button from '../components/ui/Button.vue';
+import { getPortalBasePath, getTenantSlug } from '../portalTenant';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,7 +34,8 @@ const email = ref('');
 const password = ref('');
 const error = ref('');
 const loading = ref(false);
-const tenantSlug = computed(() => String(route.params.tenantSlug || 'default'));
+const tenantSlug = computed(() => getTenantSlug(route));
+const portalHomePath = computed(() => getPortalBasePath(route));
 
 async function submit() {
   error.value = '';
@@ -41,7 +43,7 @@ async function submit() {
   try {
     const { data } = await api.post('/auth/login', { email: email.value.trim(), password: password.value });
     auth.setSession(data.token, data.user);
-    router.push(`/t/${tenantSlug.value}/portal`);
+    router.push(portalHomePath.value);
   } catch (err: any) {
     error.value = err?.response?.data?.message || 'Login failed.';
   } finally {

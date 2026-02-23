@@ -21,6 +21,35 @@ function readTenantSlug(request: FastifyRequest) {
   return parsed.success ? parsed.data.tenantSlug : '';
 }
 
+function normalizeHost(rawHost: string) {
+  return rawHost.split(',')[0].trim().toLowerCase().replace(/:\d+$/, '');
+}
+
+function readTenantSlugFromHost(request: FastifyRequest) {
+  const forwardedHost = request.headers['x-forwarded-host'];
+  const headerHost = typeof forwardedHost === 'string'
+    ? forwardedHost
+    : Array.isArray(forwardedHost)
+      ? forwardedHost[0]
+      : request.headers.host || '';
+  const host = normalizeHost(headerHost);
+  if (!host || host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return '';
+  }
+
+  const configuredBaseDomain = (process.env.TENANT_BASE_DOMAIN || '').trim().toLowerCase();
+  if (configuredBaseDomain) {
+    if (host === configuredBaseDomain) return '';
+    if (!host.endsWith(`.${configuredBaseDomain}`)) return '';
+    return host.slice(0, -(configuredBaseDomain.length + 1)).split('.')[0] || '';
+  }
+
+  const labels = host.split('.').filter(Boolean);
+  if (labels.length < 3) return '';
+  if (labels[0] === 'www') return '';
+  return labels[0] || '';
+}
+
 export async function resolveTenantBySlug(tenantSlug: string) {
   return prisma.tenant.findUnique({ where: { slug: tenantSlug } });
 }
@@ -29,9 +58,9 @@ export async function requireTenantMembership(request: FastifyRequest, reply: Fa
   await requireAuth(request, reply);
   if (reply.sent) return;
 
-  const tenantSlug = readTenantSlug(request);
+  const tenantSlug = readTenantSlug(request) || readTenantSlugFromHost(request);
   if (!tenantSlug) {
-    return reply.badRequest('tenantSlug route parameter is required.');
+    return reply.badRequest('Tenant could not be resolved from route or host.');
   }
 
   const tenant = await resolveTenantBySlug(tenantSlug);

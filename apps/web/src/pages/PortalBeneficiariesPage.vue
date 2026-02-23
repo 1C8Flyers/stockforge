@@ -33,9 +33,10 @@ import { api } from '../api';
 import Card from '../components/ui/Card.vue';
 import Input from '../components/ui/Input.vue';
 import Button from '../components/ui/Button.vue';
+import { getTenantSlug } from '../portalTenant';
 
 const route = useRoute();
-const tenantSlug = computed(() => String(route.params.tenantSlug || 'default'));
+const tenantSlug = computed(() => getTenantSlug(route));
 
 const designation = ref<any>(null);
 const entries = ref<Array<{ name: string; relationship: string; email: string; percent: number }>>([]);

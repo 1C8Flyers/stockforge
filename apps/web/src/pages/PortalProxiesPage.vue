@@ -53,9 +53,10 @@ import Card from '../components/ui/Card.vue';
 import Input from '../components/ui/Input.vue';
 import Select from '../components/ui/Select.vue';
 import Button from '../components/ui/Button.vue';
+import { getTenantSlug } from '../portalTenant';
 
 const route = useRoute();
-const tenantSlug = computed(() => String(route.params.tenantSlug || 'default'));
+const tenantSlug = computed(() => getTenantSlug(route));
 
 const loading = ref(false);
 const saving = ref(false);
