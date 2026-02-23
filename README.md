@@ -64,6 +64,13 @@ Default seeded admin (from .env):
 ## Environment variables
 Use [.env.example](.env.example).
 
+Domain/subdomain settings (recommended for proxy deployments):
+- `PUBLIC_APP_BASE_URL`: public web origin used in links/QRs/password resets (example: `https://vericapt.com`)
+- `CORS_ORIGIN`: allowed browser origin for API requests (example: `https://vericapt.com`)
+- `TENANT_BASE_DOMAIN`: API host-based tenant resolution base domain (example: `vericapt.com`)
+- `VITE_TENANT_BASE_DOMAIN`: web tenant subdomain redirect base domain (example: `vericapt.com`)
+- `VITE_API_BASE_URL`: API base path/origin for web app (use `/api` behind NPM)
+
 Certificate verification settings:
 - `CERT_VERIFICATION_SECRET`: HMAC secret used to sign certificate verification links (recommended to set explicitly in production)
 - `PUBLIC_APP_BASE_URL`: public web origin used in certificate QR links (example: `https://shares.example.com`)
