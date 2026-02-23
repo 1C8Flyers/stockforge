@@ -18,6 +18,7 @@ import PortalHoldingsPage from './pages/PortalHoldingsPage.vue';
 import PortalMeetingsPage from './pages/PortalMeetingsPage.vue';
 import PortalProxiesPage from './pages/PortalProxiesPage.vue';
 import PortalBeneficiariesPage from './pages/PortalBeneficiariesPage.vue';
+import SystemAdminPage from './pages/SystemAdminPage.vue';
 import { buildTenantSubdomainUrl } from './portalTenant';
 
 export const router = createRouter({
@@ -47,6 +48,7 @@ export const router = createRouter({
     { path: '/audit-log', component: AuditLogPage, meta: { title: 'Audit Log' } },
     { path: '/user-manual', component: UserManualPage, meta: { title: 'User Manual' } },
     { path: '/admin', component: AdminPage, meta: { title: 'Admin' } },
+    { path: '/system-admin', component: SystemAdminPage, meta: { title: 'System Admin', fullScreen: true, systemAdminOnly: true } },
     {
       path: '/verify/certificate/:verificationId',
       alias: ['/verify/:verificationId', '/verify/stock/:verificationId'],
@@ -104,6 +106,15 @@ router.beforeEach((to) => {
 
   if (pathLower.startsWith('/verify/')) return;
   if (to.path === '/request-password-reset' || to.path === '/reset-password') return;
+  if (to.meta.systemAdminOnly) {
+    try {
+      const raw = localStorage.getItem('authUser');
+      const authUser = raw ? JSON.parse(raw) as { isSystemAdmin?: boolean } : null;
+      if (!authUser?.isSystemAdmin) return '/';
+    } catch {
+      return '/';
+    }
+  }
   if (to.path === '/login' && token) return '/';
   if (to.path !== '/login' && !token) return '/login';
 });

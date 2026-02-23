@@ -4,15 +4,17 @@ import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
-import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 export async function configRoutes(app: FastifyInstance) {
-  app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
-    const rows = await prisma.appConfig.findMany({ where: { tenantId: DEFAULT_TENANT_ID } });
+  app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
+    const rows = await prisma.appConfig.findMany({ where: { tenantId } });
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   });
 
   app.put('/', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = z
       .object({
         excludeDisputedFromVoting: z.boolean().optional(),
@@ -49,10 +51,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.excludeDisputedFromVoting === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'excludeDisputedFromVoting' } },
+        where: { tenantId_key: { tenantId, key: 'excludeDisputedFromVoting' } },
         update: { value: body.excludeDisputedFromVoting ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'excludeDisputedFromVoting',
           value: body.excludeDisputedFromVoting ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -63,10 +65,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailPasswordResetsEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.passwordResetsEnabled' } },
+        where: { tenantId_key: { tenantId, key: 'email.passwordResetsEnabled' } },
         update: { value: body.emailPasswordResetsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'email.passwordResetsEnabled',
           value: body.emailPasswordResetsEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -77,10 +79,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailMeetingReportsEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.meetingReportsEnabled' } },
+        where: { tenantId_key: { tenantId, key: 'email.meetingReportsEnabled' } },
         update: { value: body.emailMeetingReportsEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'email.meetingReportsEnabled',
           value: body.emailMeetingReportsEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -91,10 +93,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailProxyReceiptEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.proxyReceiptEnabled' } },
+        where: { tenantId_key: { tenantId, key: 'email.proxyReceiptEnabled' } },
         update: { value: body.emailProxyReceiptEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'email.proxyReceiptEnabled',
           value: body.emailProxyReceiptEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -105,10 +107,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.emailCertificateNoticesEnabled === 'boolean') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'email.certificateNoticesEnabled' } },
+        where: { tenantId_key: { tenantId, key: 'email.certificateNoticesEnabled' } },
         update: { value: body.emailCertificateNoticesEnabled ? 'true' : 'false', updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'email.certificateNoticesEnabled',
           value: body.emailCertificateNoticesEnabled ? 'true' : 'false',
           updatedById: request.userContext.id
@@ -119,28 +121,28 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.appDisplayName === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appDisplayName' } },
+        where: { tenantId_key: { tenantId, key: 'appDisplayName' } },
         update: { value: body.appDisplayName, updatedById: request.userContext.id },
-        create: { tenantId: DEFAULT_TENANT_ID, key: 'appDisplayName', value: body.appDisplayName, updatedById: request.userContext.id }
+        create: { tenantId, key: 'appDisplayName', value: body.appDisplayName, updatedById: request.userContext.id }
       });
       updates.push('appDisplayName');
     }
 
     if (typeof body.appLogoUrl === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appLogoUrl' } },
+        where: { tenantId_key: { tenantId, key: 'appLogoUrl' } },
         update: { value: body.appLogoUrl, updatedById: request.userContext.id },
-        create: { tenantId: DEFAULT_TENANT_ID, key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
+        create: { tenantId, key: 'appLogoUrl', value: body.appLogoUrl, updatedById: request.userContext.id }
       });
       updates.push('appLogoUrl');
     }
 
     if (typeof body.appIncorporationState === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appIncorporationState' } },
+        where: { tenantId_key: { tenantId, key: 'appIncorporationState' } },
         update: { value: body.appIncorporationState, updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'appIncorporationState',
           value: body.appIncorporationState,
           updatedById: request.userContext.id
@@ -151,10 +153,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.appPublicBaseUrl === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'appPublicBaseUrl' } },
+        where: { tenantId_key: { tenantId, key: 'appPublicBaseUrl' } },
         update: { value: body.appPublicBaseUrl, updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'appPublicBaseUrl',
           value: body.appPublicBaseUrl,
           updatedById: request.userContext.id
@@ -165,10 +167,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.certificateSecretaryName === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'certificateSecretaryName' } },
+        where: { tenantId_key: { tenantId, key: 'certificateSecretaryName' } },
         update: { value: body.certificateSecretaryName, updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'certificateSecretaryName',
           value: body.certificateSecretaryName,
           updatedById: request.userContext.id
@@ -179,10 +181,10 @@ export async function configRoutes(app: FastifyInstance) {
 
     if (typeof body.certificatePresidentName === 'string') {
       await prisma.appConfig.upsert({
-        where: { tenantId_key: { tenantId: DEFAULT_TENANT_ID, key: 'certificatePresidentName' } },
+        where: { tenantId_key: { tenantId, key: 'certificatePresidentName' } },
         update: { value: body.certificatePresidentName, updatedById: request.userContext.id },
         create: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           key: 'certificatePresidentName',
           value: body.certificatePresidentName,
           updatedById: request.userContext.id
@@ -191,9 +193,9 @@ export async function configRoutes(app: FastifyInstance) {
       updates.push('certificatePresidentName');
     }
 
-    const rows = await prisma.appConfig.findMany({ where: { tenantId: DEFAULT_TENANT_ID } });
+    const rows = await prisma.appConfig.findMany({ where: { tenantId } });
     const result = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    await audit(prisma, request.userContext.id, 'UPDATE', 'AppConfig', 'global', { updatedKeys: updates, values: body });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'AppConfig', 'global', { updatedKeys: updates, values: body }, tenantId);
     return result;
   });
 }

@@ -54,6 +54,20 @@ export async function resolveTenantBySlug(tenantSlug: string) {
   return prisma.tenant.findUnique({ where: { slug: tenantSlug } });
 }
 
+export async function resolveTenantIdForRequest(request: FastifyRequest) {
+  if (request.tenantContext?.id) {
+    return request.tenantContext.id;
+  }
+
+  const tenantSlug = readTenantSlug(request) || readTenantSlugFromHost(request);
+  if (!tenantSlug) {
+    return DEFAULT_TENANT_ID;
+  }
+
+  const tenant = await resolveTenantBySlug(tenantSlug);
+  return tenant?.id || DEFAULT_TENANT_ID;
+}
+
 export async function requireTenantMembership(request: FastifyRequest, reply: FastifyReply) {
   await requireAuth(request, reply);
   if (reply.sent) return;

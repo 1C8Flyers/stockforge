@@ -2,6 +2,7 @@ import { prisma } from './db.js';
 
 export async function writeEmailLog(input: {
   type: 'PASSWORD_RESET' | 'MEETING_REPORT' | 'CERTIFICATE' | 'PROXY_RECEIPT' | 'EMAIL_TEST';
+  tenantId?: string;
   to: string;
   subject: string;
   status: 'SENT' | 'FAILED';
@@ -12,6 +13,7 @@ export async function writeEmailLog(input: {
   await prisma.emailLog.create({
     data: {
       type: input.type,
+      tenantId: input.tenantId,
       to: input.to,
       subject: input.subject,
       status: input.status,

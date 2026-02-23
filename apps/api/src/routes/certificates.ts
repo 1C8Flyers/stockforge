@@ -11,7 +11,7 @@ import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
 import { certificateNoticeTemplate } from '../emails/templates/index.js';
 import { sendMailWithAttachments } from '../services/mailer.js';
 import { writeEmailLog } from '../lib/email-log.js';
-import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 function ownerName(owner: { firstName: string | null; lastName: string | null; entityName: string | null }) {
   return owner.entityName || `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim();
@@ -272,13 +272,14 @@ export async function certificateRoutes(app: FastifyInstance) {
   });
 
   app.get('/lots/:lotId.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { lotId } = z.object({ lotId: z.string() }).parse(request.params);
     const { mode } = z
       .object({ mode: z.enum(['original', 'reprint']).optional().default('original') })
       .parse(request.query);
 
-    const lot = await prisma.shareLot.findUnique({
-      where: { id: lotId },
+    const lot = await prisma.shareLot.findFirst({
+      where: { id: lotId, tenantId },
       include: { owner: true }
     });
     if (!lot) return reply.notFound();
@@ -293,7 +294,7 @@ export async function certificateRoutes(app: FastifyInstance) {
 
     const cfg = await prisma.appConfig.findMany({
       where: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         key: {
           in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
         }
@@ -334,7 +335,7 @@ export async function certificateRoutes(app: FastifyInstance) {
       shares: lot.shares,
       mode,
       verificationId
-    });
+    }, tenantId);
 
     reply.header('Content-Type', 'application/pdf');
     reply.header('Cache-Control', 'no-store');
@@ -343,14 +344,15 @@ export async function certificateRoutes(app: FastifyInstance) {
   });
 
   app.post('/lots/:lotId/email', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { lotId } = z.object({ lotId: z.string() }).parse(request.params);
-    const flags = await getEmailPreferenceFlags();
+    const flags = await getEmailPreferenceFlags(tenantId);
     if (!flags.certificateNoticesEnabled) {
       return reply.badRequest('Certificate notice emails are disabled in email preferences.');
     }
 
-    const lot = await prisma.shareLot.findUnique({
-      where: { id: lotId },
+    const lot = await prisma.shareLot.findFirst({
+      where: { id: lotId, tenantId },
       include: { owner: true }
     });
     if (!lot) return reply.notFound();
@@ -365,7 +367,7 @@ export async function certificateRoutes(app: FastifyInstance) {
 
     const cfg = await prisma.appConfig.findMany({
       where: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         key: {
           in: ['appDisplayName', 'appIncorporationState', 'appPublicBaseUrl', 'certificateSecretaryName', 'certificatePresidentName']
         }
@@ -422,6 +424,7 @@ export async function certificateRoutes(app: FastifyInstance) {
 
       await writeEmailLog({
         type: 'CERTIFICATE',
+        tenantId,
         to: recipientEmail,
         subject: template.subject,
         status: 'SENT',
@@ -432,13 +435,14 @@ export async function certificateRoutes(app: FastifyInstance) {
       await audit(prisma, request.userContext.id, 'CERTIFICATE_EMAILED', 'ShareLot', lot.id, {
         shareholderId: lot.ownerId,
         success: true
-      });
+      }, tenantId);
 
       return { ok: true };
     } catch (error: any) {
       const safeError = error?.message || 'Unable to send certificate email.';
       await writeEmailLog({
         type: 'CERTIFICATE',
+        tenantId,
         to: recipientEmail,
         subject: template.subject,
         status: 'FAILED',
@@ -450,7 +454,7 @@ export async function certificateRoutes(app: FastifyInstance) {
         shareholderId: lot.ownerId,
         success: false,
         error: safeError
-      });
+      }, tenantId);
       return reply.code(500).send({ ok: false, error: safeError });
     }
   });

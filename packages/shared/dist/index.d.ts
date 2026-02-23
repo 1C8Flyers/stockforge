@@ -21,6 +21,9 @@ export interface AuthUser {
     id: string;
     email: string;
     roles: RoleName[];
+    tenantId?: string;
+    isSystemAdmin?: boolean;
+    systemRoles?: RoleName[];
 }
 export interface EmailSettingsDto {
     enabled: boolean;

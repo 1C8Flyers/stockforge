@@ -18,7 +18,8 @@ export const useAuthStore = defineStore('auth', {
       const roles = state.user?.roles ?? [];
       return roles.includes(RoleName.Admin) || roles.includes(RoleName.Officer);
     },
-    isAdmin: (state) => (state.user?.roles ?? []).includes(RoleName.Admin)
+    isAdmin: (state) => (state.user?.roles ?? []).includes(RoleName.Admin),
+    isSystemAdmin: (state) => Boolean(state.user?.isSystemAdmin)
   },
   actions: {
     setSession(token: string, user?: AuthUser) {

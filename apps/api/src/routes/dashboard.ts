@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { calculateVotingSnapshot, getExcludeDisputed } from '../lib/voting.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 function shareholderName(s: { firstName: string | null; lastName: string | null; entityName: string | null }) {
   return s.entityName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim();
@@ -11,11 +12,12 @@ function shareholderName(s: { firstName: string | null; lastName: string | null;
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const query = z.object({ blocIds: z.string().optional() }).parse(request.query);
-    const snap = await calculateVotingSnapshot(prisma);
-    const excludeDisputed = await getExcludeDisputed(prisma);
+    const snap = await calculateVotingSnapshot(prisma, tenantId);
+    const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
 
-    const shareholders = await prisma.shareholder.findMany({ include: { lots: true } });
+    const shareholders = await prisma.shareholder.findMany({ where: { tenantId }, include: { lots: true } });
     const top = shareholders
       .map((s) => {
         const ownerExcluded =
@@ -38,6 +40,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .reduce((sum, s) => sum + s.activeShares, 0);
 
     const recentActivity = await prisma.auditLog.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' },
       take: 20,
       include: { user: true }

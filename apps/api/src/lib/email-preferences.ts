@@ -22,10 +22,10 @@ const DEFAULT_FLAGS: EmailPreferenceFlags = {
   certificateNoticesEnabled: false
 };
 
-export async function getEmailPreferenceFlags() {
+export async function getEmailPreferenceFlags(tenantId = DEFAULT_TENANT_ID) {
   const rows = await prisma.appConfig.findMany({
     where: {
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId,
       key: {
         in: Object.values(EMAIL_PREF_KEYS)
       }

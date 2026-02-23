@@ -15,10 +15,15 @@ Operational runbook and latest deployment notes: [INSTRUCTIONS.md](INSTRUCTIONS.
 ## Quick start (Docker)
 1. Copy [.env.example](.env.example) to .env and adjust values.
 2. Start stack:
-   - `docker compose up --build`
+   - `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`
 3. Open:
    - Web: http://localhost:5173
    - API: http://localhost:3000/api
+
+Compose profiles:
+- Base file [docker-compose.yml](docker-compose.yml) is internal-only (no host-published ports).
+- Local host access is provided by [docker-compose.local.yml](docker-compose.local.yml).
+- NAS reverse-proxy mode is provided by [docker-compose.nas.yml](docker-compose.nas.yml).
 
 Container startup for API runs:
 1) `prisma migrate deploy`
@@ -26,11 +31,11 @@ Container startup for API runs:
 3) `start`
 
 ## NAS deployment (Enterprise)
-For NAS environments where ports `3000`/`5173`/`5432` are already in use, use the NAS compose profile:
+For NAS environments behind NPM, use the NAS compose profile:
 
 - Compose file: [docker-compose.nas.yml](docker-compose.nas.yml)
 - Run:
-   - `docker compose -f docker-compose.nas.yml up -d --build`
+   - `docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d --build`
 
 NPM network mode (recommended):
 - `web`, `api`, and `db` are attached to external Docker network `npm_default`
@@ -69,11 +74,16 @@ Email settings:
    - set this in your `.env` before enabling/saving SMTP settings
 
 ## Auth + RBAC
-Roles enforced server-side:
+Roles enforced server-side (tenant-scoped for app operations):
 - Admin
 - Officer
 - Clerk
 - ReadOnly
+
+System-wide administration:
+- Global `Admin` (system admin) is separate from tenant role membership.
+- Tenant app permissions are evaluated from `TenantUser.roles` for the resolved tenant.
+- Dedicated system admin UI route: `/system-admin` (outside the normal app shell).
 
 ## Implemented API areas
 - Auth: login, me, request-password-reset, reset-password
@@ -164,7 +174,7 @@ Fixes now included:
 - NAS profile uses relative `/api` for NPM reverse proxy routing.
 
 After updating, rebuild web image:
-- `docker compose -f docker-compose.nas.yml up -d --build web`
+- `docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d --build web`
 
 ### Vite host blocked (`enterprise.local is not allowed`)
 Fix now included in [apps/web/vite.config.ts](apps/web/vite.config.ts):

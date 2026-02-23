@@ -4,6 +4,7 @@
       route.path === '/login' ||
       route.path === '/request-password-reset' ||
       route.path === '/reset-password' ||
+      Boolean(route.meta?.fullScreen) ||
       route.path.toLowerCase().startsWith('/verify/') ||
       route.path.toLowerCase().endsWith('/portal/login')
     "

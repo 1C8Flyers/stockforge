@@ -4,6 +4,7 @@ import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
 import { writeEmailLog } from '../lib/email-log.js';
 
 export async function sendProxyReceiptEmail(input: {
+  tenantId?: string;
   meetingId: string;
   meetingTitle: string;
   grantorEmail: string;
@@ -12,7 +13,7 @@ export async function sendProxyReceiptEmail(input: {
   status: string;
   referenceId: string;
 }) {
-  const flags = await getEmailPreferenceFlags();
+  const flags = await getEmailPreferenceFlags(input.tenantId);
   if (!flags.proxyReceiptEnabled) {
     return { skipped: true, reason: 'proxy-receipt-disabled' as const };
   }
@@ -33,6 +34,7 @@ export async function sendProxyReceiptEmail(input: {
       });
       await writeEmailLog({
         type: 'PROXY_RECEIPT',
+        tenantId: input.tenantId,
         to,
         subject: template.subject,
         status: 'SENT',
@@ -42,6 +44,7 @@ export async function sendProxyReceiptEmail(input: {
     } catch (error: any) {
       await writeEmailLog({
         type: 'PROXY_RECEIPT',
+        tenantId: input.tenantId,
         to,
         subject: template.subject,
         status: 'FAILED',

@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { RoleName } from '@prisma/client';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
@@ -9,7 +10,7 @@ import { passwordResetTemplate } from '../emails/templates/index.js';
 import { sendMail } from '../services/mailer.js';
 import { writeEmailLog } from '../lib/email-log.js';
 import { audit } from '../lib/audit.js';
-import { DEFAULT_TENANT_ID } from '../lib/tenant.js';
+import { DEFAULT_TENANT_ID, resolveTenantIdForRequest } from '../lib/tenant.js';
 
 function hashToken(raw: string) {
   return crypto.createHash('sha256').update(raw).digest('hex');
@@ -19,11 +20,11 @@ function normalizeBaseUrl(url: string) {
   return url.trim().replace(/\/+$/, '');
 }
 
-async function resolvePublicAppBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
+async function resolvePublicAppBaseUrl(request: { protocol: string; headers: Record<string, unknown> }, tenantId = DEFAULT_TENANT_ID) {
   const config = await prisma.appConfig.findUnique({
     where: {
       tenantId_key: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         key: 'appPublicBaseUrl'
       }
     }
@@ -50,9 +51,36 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.unauthorized('Invalid credentials');
     }
 
-    const roles = user.userRoles.map((r) => r.role.name);
-    const token = await reply.jwtSign({ sub: user.id, email: user.email, roles });
-    return { token, user: { id: user.id, email: user.email, roles } };
+    const tenantId = await resolveTenantIdForRequest(request);
+    const systemRoles = user.userRoles.map((r) => r.role.name);
+    const isSystemAdmin = systemRoles.includes(RoleName.Admin);
+    const membership = await prisma.tenantUser.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: user.id
+        }
+      },
+      select: { roles: true }
+    });
+    const roles = membership?.roles || [];
+
+    if (!isSystemAdmin && roles.length === 0) {
+      return reply.forbidden('You are not a member of this tenant.');
+    }
+
+    const token = await reply.jwtSign({ sub: user.id, email: user.email });
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        roles,
+        tenantId,
+        isSystemAdmin,
+        systemRoles
+      }
+    };
   });
 
   app.get('/me', { preHandler: requireAuth }, async (request) => {
@@ -60,11 +88,12 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/request-password-reset', async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = z.object({ email: z.string().email() }).parse(request.body);
     const user = await prisma.user.findUnique({ where: { email: body.email } });
 
     try {
-      const flags = await getEmailPreferenceFlags();
+      const flags = await getEmailPreferenceFlags(tenantId);
       if (!flags.passwordResetsEnabled || !user) {
         return { ok: true };
       }
@@ -75,13 +104,14 @@ export async function authRoutes(app: FastifyInstance) {
 
       await prisma.passwordResetToken.create({
         data: {
+          tenantId,
           userId: user.id,
           tokenHash,
           expiresAt
         }
       });
 
-      const baseUrl = await resolvePublicAppBaseUrl(request);
+      const baseUrl = await resolvePublicAppBaseUrl(request, tenantId);
       const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
       const template = passwordResetTemplate({
         resetUrl,
@@ -97,6 +127,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       await writeEmailLog({
         type: 'PASSWORD_RESET',
+        tenantId,
         to: user.email,
         subject: template.subject,
         status: 'SENT',
@@ -106,11 +137,12 @@ export async function authRoutes(app: FastifyInstance) {
 
       await audit(prisma, user.id, 'PASSWORD_RESET_REQUESTED', 'User', user.id, {
         emailDomain: String(user.email.split('@')[1] || '')
-      });
+      }, tenantId);
     } catch (error: any) {
       if (user) {
         await writeEmailLog({
           type: 'PASSWORD_RESET',
+          tenantId,
           to: user.email,
           subject: 'Reset your StockForge password',
           status: 'FAILED',
@@ -125,6 +157,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/reset-password', async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = z.object({ token: z.string().min(10), newPassword: z.string().min(8) }).parse(request.body);
     const tokenHash = hashToken(body.token);
 
@@ -133,7 +166,7 @@ export async function authRoutes(app: FastifyInstance) {
       include: { user: true }
     });
 
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+    if (!row || row.tenantId !== tenantId || row.usedAt || row.expiresAt.getTime() < Date.now()) {
       return reply.badRequest('Reset token is invalid or expired.');
     }
 
@@ -143,7 +176,7 @@ export async function authRoutes(app: FastifyInstance) {
       await tx.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
     });
 
-    await audit(prisma, row.userId, 'PASSWORD_RESET_COMPLETED', 'User', row.userId);
+    await audit(prisma, row.userId, 'PASSWORD_RESET_COMPLETED', 'User', row.userId, undefined, tenantId);
     return { ok: true };
   });
 }

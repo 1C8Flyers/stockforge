@@ -44,7 +44,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const admin = useAdminStore();
 
-if (!auth.isAdmin) {
+if (!auth.isAdmin && !auth.isSystemAdmin) {
   router.push('/');
 }
 

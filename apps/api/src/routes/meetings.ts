@@ -10,6 +10,7 @@ import { getEmailPreferenceFlags } from '../lib/email-preferences.js';
 import { meetingReportTemplate } from '../emails/templates/index.js';
 import { sendMailWithAttachments } from '../services/mailer.js';
 import { writeEmailLog } from '../lib/email-log.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 const ballotChoiceSchema = z.enum(['yes', 'no', 'abstain']);
 const motionTypeSchema = z.enum(['STANDARD', 'ELECTION']);
@@ -39,17 +40,19 @@ function getVerifiedProxyDelegation(
 }
 
 export async function meetingRoutes(app: FastifyInstance) {
-  app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async () => {
-    return prisma.meeting.findMany({ include: { snapshot: true }, orderBy: { dateTime: 'desc' } });
+  app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
+    return prisma.meeting.findMany({ where: { tenantId }, include: { snapshot: true }, orderBy: { dateTime: 'desc' } });
   });
 
   app.get(
     '/pending-summary',
     { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) },
-    async () => {
+    async (request) => {
+      const tenantId = await resolveTenantIdForRequest(request);
       const [openMotions, pendingProxies] = await Promise.all([
-        prisma.motion.count({ where: { isClosed: false } }),
-        prisma.proxy.count({ where: { status: 'Draft' } })
+        prisma.motion.count({ where: { tenantId, isClosed: false } }),
+        prisma.proxy.count({ where: { tenantId, status: 'Draft' } })
       ]);
 
       return {
@@ -61,27 +64,30 @@ export async function meetingRoutes(app: FastifyInstance) {
   );
 
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = z.object({ title: z.string().min(1), dateTime: z.string().datetime() }).parse(request.body);
-    const snapshot = await calculateVotingSnapshot(prisma);
+    const snapshot = await calculateVotingSnapshot(prisma, tenantId);
     const created = await prisma.$transaction(async (tx) => {
       const snap = await tx.meetingSnapshot.create({
         data: {
+          tenantId,
           activeVotingShares: snapshot.activeVotingShares,
           excludedShares: snapshot.excludedShares,
           majorityThreshold: snapshot.majorityThreshold,
           rulesJson: snapshot.rulesJson
         }
       });
-      return tx.meeting.create({ data: { title: body.title, dateTime: new Date(body.dateTime), snapshotId: snap.id } });
+      return tx.meeting.create({ data: { tenantId, title: body.title, dateTime: new Date(body.dateTime), snapshotId: snap.id } });
     });
-    await audit(prisma, request.userContext.id, 'CREATE', 'Meeting', created.id, body);
+    await audit(prisma, request.userContext.id, 'CREATE', 'Meeting', created.id, body, tenantId);
     return created;
   });
 
   app.put('/:id', { preHandler: requireRoles(...canWriteRoles) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z.object({ title: z.string().optional(), dateTime: z.string().datetime().optional() }).parse(request.body);
-    const existing = await prisma.meeting.findUnique({ where: { id } });
+    const existing = await prisma.meeting.findFirst({ where: { id, tenantId } });
     if (!existing) return reply.notFound();
     const updated = await prisma.meeting.update({
       where: { id },
@@ -90,30 +96,43 @@ export async function meetingRoutes(app: FastifyInstance) {
         dateTime: body.dateTime ? new Date(body.dateTime) : undefined
       }
     });
-    await audit(prisma, request.userContext.id, 'UPDATE', 'Meeting', id, { before: existing, after: updated });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'Meeting', id, { before: existing, after: updated }, tenantId);
     return updated;
   });
 
-  app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request) => {
+  app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    const existing = await prisma.meeting.findFirst({ where: { id, tenantId } });
+    if (!existing) return reply.notFound();
     await prisma.meeting.delete({ where: { id } });
-    await audit(prisma, request.userContext.id, 'DELETE', 'Meeting', id);
+    await audit(prisma, request.userContext.id, 'DELETE', 'Meeting', id, undefined, tenantId);
     return { ok: true };
   });
 
   app.post('/:id/attendance', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z.object({ shareholderId: z.string(), present: z.boolean() }).parse(request.body);
+
+    const [meeting, shareholder] = await Promise.all([
+      prisma.meeting.findFirst({ where: { id, tenantId }, select: { id: true } }),
+      prisma.shareholder.findFirst({ where: { id: body.shareholderId, tenantId }, select: { id: true } })
+    ]);
+    if (!meeting) throw app.httpErrors.notFound('Meeting not found.');
+    if (!shareholder) throw app.httpErrors.badRequest('Shareholder not found in this tenant.');
+
     const row = await prisma.attendance.upsert({
       where: { meetingId_shareholderId: { meetingId: id, shareholderId: body.shareholderId } },
       update: { present: body.present },
-      create: { meetingId: id, shareholderId: body.shareholderId, present: body.present }
+      create: { tenantId, meetingId: id, shareholderId: body.shareholderId, present: body.present }
     });
-    await audit(prisma, request.userContext.id, 'UPDATE', 'Attendance', row.id, body);
+    await audit(prisma, request.userContext.id, 'UPDATE', 'Attendance', row.id, body, tenantId);
     return row;
   });
 
   app.post('/:id/motions', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z
       .object({
@@ -146,8 +165,12 @@ export async function meetingRoutes(app: FastifyInstance) {
       if (!text) throw app.httpErrors.badRequest('Standard motions require motion text.');
     }
 
+    const meeting = await prisma.meeting.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!meeting) throw app.httpErrors.notFound('Meeting not found.');
+
     const motion = await prisma.motion.create({
       data: {
+        tenantId,
         meetingId: id,
         title,
         text,
@@ -156,17 +179,18 @@ export async function meetingRoutes(app: FastifyInstance) {
         candidatesJson: type === MotionType.ELECTION ? candidates : undefined
       }
     });
-    await audit(prisma, request.userContext.id, 'CREATE', 'Motion', motion.id, body);
+    await audit(prisma, request.userContext.id, 'CREATE', 'Motion', motion.id, body, tenantId);
     return motion;
   });
 
   app.get('/:id/present-voters', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const rows = await prisma.attendance.findMany({
-      where: { meetingId: id, present: true },
+      where: { tenantId, meetingId: id, present: true },
       include: { shareholder: true }
     });
-    const proxies = await prisma.proxy.findMany({ where: { meetingId: id } });
+    const proxies = await prisma.proxy.findMany({ where: { tenantId, meetingId: id } });
     const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(proxies);
 
     const voters = await Promise.all(
@@ -174,7 +198,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         shareholderId: row.shareholderId,
         name: shareholderName(row.shareholder),
         shares:
-          (proxiedGrantorIds.has(row.shareholderId) ? 0 : await getShareholderActiveShares(prisma, row.shareholderId)) +
+          (proxiedGrantorIds.has(row.shareholderId) ? 0 : await getShareholderActiveShares(prisma, row.shareholderId, tenantId)) +
           (delegatedToHolder.get(row.shareholderId) || 0)
       }))
     );
@@ -183,6 +207,7 @@ export async function meetingRoutes(app: FastifyInstance) {
   });
 
   app.post('/motions/:motionId/votes', { preHandler: requireRoles(...canPostRoles) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { motionId } = z.object({ motionId: z.string() }).parse(request.params);
     const rawBody = request.body;
 
@@ -190,7 +215,7 @@ export async function meetingRoutes(app: FastifyInstance) {
       where: { id: motionId },
       include: { meeting: { include: { snapshot: true, attendance: true, proxies: true } } }
     });
-    if (!motion) return reply.notFound();
+    if (!motion || motion.tenantId !== tenantId) return reply.notFound();
     if (motion.isClosed) {
       return reply.code(409).send({ error: 'Motion is closed. Reopen it before recording additional votes.' });
     }
@@ -199,7 +224,7 @@ export async function meetingRoutes(app: FastifyInstance) {
     const { proxiedGrantorIds, delegatedToHolder } = getVerifiedProxyDelegation(motion.meeting.proxies);
 
     const effectiveSharesForBallot = async (shareholderId: string) => {
-      const activeShares = proxiedGrantorIds.has(shareholderId) ? 0 : await getShareholderActiveShares(prisma, shareholderId);
+      const activeShares = proxiedGrantorIds.has(shareholderId) ? 0 : await getShareholderActiveShares(prisma, shareholderId, tenantId);
       return activeShares + (delegatedToHolder.get(shareholderId) || 0);
     };
 
@@ -292,28 +317,32 @@ export async function meetingRoutes(app: FastifyInstance) {
       : (yesShares >= threshold && represented > 0 ? VoteResult.Passed : VoteResult.Failed);
 
     const vote = await prisma.$transaction(async (tx) => {
-      const created = await tx.vote.create({ data: { motionId, yesShares, noShares, abstainShares, result, detailsJson: details as any } });
+      const created = await tx.vote.create({
+        data: { tenantId, motionId, yesShares, noShares, abstainShares, result, detailsJson: details as any }
+      });
       await tx.motion.update({ where: { id: motionId }, data: { isClosed: true } });
       return created;
     });
-    await audit(prisma, request.userContext.id, 'CREATE', 'Vote', vote.id, { yesShares, noShares, abstainShares, result, details });
+    await audit(prisma, request.userContext.id, 'CREATE', 'Vote', vote.id, { yesShares, noShares, abstainShares, result, details }, tenantId);
     return vote;
   });
 
   app.post('/motions/:motionId/reopen', { preHandler: requireRoles(...canPostRoles) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { motionId } = z.object({ motionId: z.string() }).parse(request.params);
-    const existing = await prisma.motion.findUnique({ where: { id: motionId } });
+    const existing = await prisma.motion.findFirst({ where: { id: motionId, tenantId } });
     if (!existing) return reply.notFound();
 
     const updated = await prisma.motion.update({ where: { id: motionId }, data: { isClosed: false } });
-    await audit(prisma, request.userContext.id, 'UPDATE', 'Motion', motionId, { before: { isClosed: existing.isClosed }, after: { isClosed: updated.isClosed } });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'Motion', motionId, { before: { isClosed: existing.isClosed }, after: { isClosed: updated.isClosed } }, tenantId);
     return updated;
   });
 
   app.get('/:id/mode', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const meeting = await prisma.meeting.findUnique({
-      where: { id },
+    const meeting = await prisma.meeting.findFirst({
+      where: { id, tenantId },
       include: {
         snapshot: true,
         attendance: { include: { shareholder: true } },
@@ -327,7 +356,7 @@ export async function meetingRoutes(app: FastifyInstance) {
     const { proxiedGrantorIds } = getVerifiedProxyDelegation(meeting.proxies as any);
     for (const row of meeting.attendance.filter((a) => a.present)) {
       if (proxiedGrantorIds.has(row.shareholderId)) continue;
-      presentShares += await getShareholderActiveShares(prisma, row.shareholderId);
+      presentShares += await getShareholderActiveShares(prisma, row.shareholderId, tenantId);
     }
 
     const proxyShares = meeting.proxies
@@ -343,6 +372,7 @@ export async function meetingRoutes(app: FastifyInstance) {
   });
 
   app.post('/:id/email-report', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z
       .object({
@@ -351,12 +381,12 @@ export async function meetingRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
-    const flags = await getEmailPreferenceFlags();
+    const flags = await getEmailPreferenceFlags(tenantId);
     if (!flags.meetingReportsEnabled) {
       return reply.badRequest('Meeting report emails are disabled in email preferences.');
     }
 
-    const generated = await buildMeetingReportPdf(id);
+    const generated = await buildMeetingReportPdf(id, tenantId);
     if (!generated) return reply.notFound();
 
     let recipients: string[] = [];
@@ -367,11 +397,10 @@ export async function meetingRoutes(app: FastifyInstance) {
     } else {
       const officers = await prisma.user.findMany({
         where: {
-          userRoles: {
+          tenantUsers: {
             some: {
-              role: {
-                name: { in: [RoleName.Officer, RoleName.Admin] }
-              }
+              tenantId,
+              roles: { hasSome: [RoleName.Officer, RoleName.Admin] }
             }
           }
         },
@@ -410,6 +439,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         recipients.map((to) =>
           writeEmailLog({
             type: 'MEETING_REPORT',
+            tenantId,
             to,
             subject: template.subject,
             status: 'SENT',
@@ -423,7 +453,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         recipientsCount: recipients.length,
         recipientMode: body.recipientMode,
         success: true
-      });
+      }, tenantId);
 
       return { ok: true, recipientsCount: recipients.length };
     } catch (error: any) {
@@ -432,6 +462,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         recipients.map((to) =>
           writeEmailLog({
             type: 'MEETING_REPORT',
+            tenantId,
             to,
             subject: template.subject,
             status: 'FAILED',
@@ -446,7 +477,7 @@ export async function meetingRoutes(app: FastifyInstance) {
         recipientMode: body.recipientMode,
         success: false,
         error: safeError
-      });
+      }, tenantId);
       return reply.code(500).send({ ok: false, error: safeError });
     }
   });

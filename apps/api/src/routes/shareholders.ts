@@ -5,6 +5,7 @@ import { prisma } from '../lib/db.js';
 import { audit } from '../lib/audit.js';
 import { canWriteRoles, requireRoles } from '../lib/auth.js';
 import { getExcludeDisputed } from '../lib/voting.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 const schema = z.object({
   type: z.nativeEnum(ShareholderType),
@@ -29,10 +30,13 @@ const setPortalLinkSchema = z.object({
 
 export async function shareholderRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const query = z.object({ q: z.string().optional() }).parse(request.query);
     const rows = await prisma.shareholder.findMany({
-      where: query.q
-        ? {
+      where: {
+        tenantId,
+        ...(query.q
+          ? {
             OR: [
               { firstName: { contains: query.q, mode: 'insensitive' } },
               { lastName: { contains: query.q, mode: 'insensitive' } },
@@ -40,9 +44,11 @@ export async function shareholderRoutes(app: FastifyInstance) {
               { email: { contains: query.q, mode: 'insensitive' } }
             ]
           }
-        : undefined,
+          : {})
+      },
       include: {
         shareholderLinks: {
+          where: { tenantId },
           include: {
             user: {
               select: {
@@ -59,8 +65,10 @@ export async function shareholderRoutes(app: FastifyInstance) {
     return rows;
   });
 
-  app.get('/portal-users', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async () => {
+  app.get('/portal-users', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     return prisma.user.findMany({
+      where: { tenantUsers: { some: { tenantId } } },
       select: {
         id: true,
         email: true
@@ -70,23 +78,26 @@ export async function shareholderRoutes(app: FastifyInstance) {
   });
 
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = schema.parse(request.body);
     const created = await prisma.shareholder.create({
       data: {
+        tenantId,
         ...body,
         email: body.email || null
       }
     });
-    await audit(prisma, request.userContext.id, 'CREATE', 'Shareholder', created.id, body);
+    await audit(prisma, request.userContext.id, 'CREATE', 'Shareholder', created.id, body, tenantId);
     return created;
   });
 
   app.get('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const shareholder = await prisma.shareholder.findUnique({ where: { id }, include: { lots: true } });
+    const shareholder = await prisma.shareholder.findFirst({ where: { id, tenantId }, include: { lots: true } });
     if (!shareholder) return reply.notFound();
 
-    const excludeDisputed = await getExcludeDisputed(prisma);
+    const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
     const ownerExcluded =
       shareholder.status === ShareholderStatus.Inactive ||
       shareholder.status === ShareholderStatus.DeceasedOutstanding ||
@@ -99,7 +110,7 @@ export async function shareholderRoutes(app: FastifyInstance) {
     const excludedShares = shareholder.lots.reduce((sum, l) => sum + l.shares, 0) - activeShares;
 
     const transfers = await prisma.transfer.findMany({
-      where: { OR: [{ fromOwnerId: id }, { toOwnerId: id }] },
+      where: { tenantId, OR: [{ fromOwnerId: id }, { toOwnerId: id }] },
       include: { lines: true },
       orderBy: { createdAt: 'desc' }
     });
@@ -108,34 +119,36 @@ export async function shareholderRoutes(app: FastifyInstance) {
   });
 
   app.put('/:id', { preHandler: requireRoles(...canWriteRoles) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = schema.partial().parse(request.body);
-    const existing = await prisma.shareholder.findUnique({ where: { id } });
+    const existing = await prisma.shareholder.findFirst({ where: { id, tenantId } });
     if (!existing) return reply.notFound();
     const updated = await prisma.shareholder.update({ where: { id }, data: body });
-    await audit(prisma, request.userContext.id, 'UPDATE', 'Shareholder', id, { before: existing, after: updated });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'Shareholder', id, { before: existing, after: updated }, tenantId);
     return updated;
   });
 
   app.put('/:id/portal-link', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = setPortalLinkSchema.parse(request.body);
 
-    const shareholder = await prisma.shareholder.findUnique({ where: { id } });
+    const shareholder = await prisma.shareholder.findFirst({ where: { id, tenantId } });
     if (!shareholder) return reply.notFound();
 
     if (!body.userId) {
       await prisma.shareholderLink.deleteMany({
         where: {
-          tenantId: shareholder.tenantId,
+          tenantId,
           shareholderId: id
         }
       });
-      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${shareholder.tenantId}:${id}`, {
-        tenantId: shareholder.tenantId,
+      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${tenantId}:${id}`, {
+        tenantId,
         shareholderId: id,
         userId: null
-      }, shareholder.tenantId);
+      }, tenantId);
       return { ok: true };
     }
 
@@ -148,7 +161,7 @@ export async function shareholderRoutes(app: FastifyInstance) {
       await prisma.shareholderLink.upsert({
         where: {
           tenantId_shareholderId: {
-            tenantId: shareholder.tenantId,
+            tenantId,
             shareholderId: id
           }
         },
@@ -156,7 +169,7 @@ export async function shareholderRoutes(app: FastifyInstance) {
           userId: body.userId
         },
         create: {
-          tenantId: shareholder.tenantId,
+          tenantId,
           shareholderId: id,
           userId: body.userId
         }
@@ -168,19 +181,20 @@ export async function shareholderRoutes(app: FastifyInstance) {
       throw error;
     }
 
-    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${shareholder.tenantId}:${id}`, {
-      tenantId: shareholder.tenantId,
+    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${tenantId}:${id}`, {
+      tenantId,
       shareholderId: id,
       userId: body.userId
-    }, shareholder.tenantId);
+    }, tenantId);
 
     return { ok: true };
   });
 
   app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const existing = await prisma.shareholder.findUnique({
-      where: { id },
+    const existing = await prisma.shareholder.findFirst({
+      where: { id, tenantId },
       include: { _count: { select: { lots: true, proxyGrantor: true } } }
     });
     if (!existing) return reply.notFound();
@@ -202,7 +216,7 @@ export async function shareholderRoutes(app: FastifyInstance) {
       }
       throw error;
     }
-    await audit(prisma, request.userContext.id, 'DELETE', 'Shareholder', id);
+    await audit(prisma, request.userContext.id, 'DELETE', 'Shareholder', id, undefined, tenantId);
     return { ok: true };
   });
 }

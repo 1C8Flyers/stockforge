@@ -1,11 +1,11 @@
 import { LotStatus, PrismaClient, ShareholderStatus } from '@prisma/client';
 import { DEFAULT_TENANT_ID } from './tenant.js';
 
-export async function getExcludeDisputed(prisma: PrismaClient) {
+export async function getExcludeDisputed(prisma: PrismaClient, tenantId = DEFAULT_TENANT_ID) {
   const row = await prisma.appConfig.findUnique({
     where: {
       tenantId_key: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         key: 'excludeDisputedFromVoting'
       }
     }
@@ -13,9 +13,9 @@ export async function getExcludeDisputed(prisma: PrismaClient) {
   return row?.value === 'true';
 }
 
-export async function calculateVotingSnapshot(prisma: PrismaClient) {
-  const excludeDisputed = await getExcludeDisputed(prisma);
-  const lots = await prisma.shareLot.findMany({ where: { tenantId: DEFAULT_TENANT_ID }, include: { owner: true } });
+export async function calculateVotingSnapshot(prisma: PrismaClient, tenantId = DEFAULT_TENANT_ID) {
+  const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
+  const lots = await prisma.shareLot.findMany({ where: { tenantId }, include: { owner: true } });
 
   let activeVotingShares = 0;
   let excludedByOwner = 0;
@@ -49,10 +49,10 @@ export async function calculateVotingSnapshot(prisma: PrismaClient) {
   };
 }
 
-export async function getShareholderActiveShares(prisma: PrismaClient, shareholderId: string) {
-  const excludeDisputed = await getExcludeDisputed(prisma);
+export async function getShareholderActiveShares(prisma: PrismaClient, shareholderId: string, tenantId = DEFAULT_TENANT_ID) {
+  const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
   const shareholder = await prisma.shareholder.findFirst({
-    where: { id: shareholderId, tenantId: DEFAULT_TENANT_ID },
+    where: { id: shareholderId, tenantId },
     select: { status: true }
   });
   if (!shareholder) return 0;
@@ -62,7 +62,7 @@ export async function getShareholderActiveShares(prisma: PrismaClient, sharehold
     shareholder.status === ShareholderStatus.DeceasedSurrendered;
   if (ownerExcluded) return 0;
 
-  const lots = await prisma.shareLot.findMany({ where: { ownerId: shareholderId, tenantId: DEFAULT_TENANT_ID } });
+  const lots = await prisma.shareLot.findMany({ where: { ownerId: shareholderId, tenantId } });
   return lots
     .filter((lot) => lot.status === LotStatus.Active || (!excludeDisputed && lot.status === LotStatus.Disputed))
     .reduce((sum, lot) => sum + lot.shares, 0);

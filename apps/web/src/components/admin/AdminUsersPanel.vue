@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="text-base font-semibold text-slate-900">Users & Roles</h3>
-        <p class="text-sm text-slate-600">Manage users, role assignments, password resets, and portal shareholder links.</p>
+        <p class="text-sm text-slate-600">Manage users, tenant role assignments, password resets, and portal shareholder links.</p>
       </div>
       <Button variant="secondary" :loading="store.loading.users" @click="store.loadUsers">Refresh</Button>
     </div>
@@ -28,8 +28,8 @@
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Email</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Roles</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Set Roles</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Tenant Roles</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Set Tenant Roles</th>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Portal Shareholder</th>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Reset Password</th>
           </tr>
@@ -37,7 +37,7 @@
         <tbody class="divide-y divide-slate-200 bg-white">
           <tr v-for="u in store.users" :key="u.id">
             <td class="px-4 py-3 text-sm text-slate-700">{{ u.email }}</td>
-            <td class="px-4 py-3 text-sm text-slate-700">{{ u.userRoles.map((r: any) => r.role.name).join(', ') }}</td>
+            <td class="px-4 py-3 text-sm text-slate-700">{{ getTenantRoles(u).join(', ') || 'No tenant role' }}</td>
             <td class="px-4 py-3 text-sm">
               <div class="flex flex-wrap gap-3">
                 <label><input type="checkbox" :checked="hasRole(u.id, 'Admin')" @change="toggleRole(u.id, 'Admin', ($event.target as HTMLInputElement).checked)" />Admin</label>
@@ -97,12 +97,17 @@ const draftRoles = ref<Record<string, string[]>>({});
 const draftShareholderLinks = ref<Record<string, string>>({});
 const passwords = ref<Record<string, string>>({});
 
+const getTenantRoles = (user: any): string[] => {
+  const roles = user?.tenantUsers?.[0]?.roles;
+  return Array.isArray(roles) ? roles : [];
+};
+
 watch(
   () => store.users,
   (users) => {
     const next: Record<string, string[]> = {};
     const nextLinks: Record<string, string> = {};
-    for (const user of users) next[user.id] = user.userRoles.map((r: any) => r.role.name);
+    for (const user of users) next[user.id] = getTenantRoles(user);
     for (const user of users) {
       const current = user.shareholderLinks?.[0]?.shareholderId;
       nextLinks[user.id] = current || '';

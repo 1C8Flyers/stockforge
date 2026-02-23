@@ -9,7 +9,7 @@ import { encryptSecret } from '../lib/email-crypto.js';
 import { getOrCreateEmailSettings } from '../lib/email-settings.js';
 import { writeEmailLog } from '../lib/email-log.js';
 import { resetMailerCache, sendMail, verifyMailer } from '../services/mailer.js';
-import { DEFAULT_TENANT_ID, requireTenantMembership } from '../lib/tenant.js';
+import { DEFAULT_TENANT_ID, requireTenantMembership, resolveTenantIdForRequest } from '../lib/tenant.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -70,12 +70,17 @@ function asDto(settings: {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  app.get('/users', { preHandler: requireRoles(RoleName.Admin) }, async () => {
+  app.get('/users', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     return prisma.user.findMany({
       include: {
         userRoles: { include: { role: true } },
+        tenantUsers: {
+          where: { tenantId },
+          select: { tenantId: true, roles: true }
+        },
         shareholderLinks: {
-          where: { tenantId: DEFAULT_TENANT_ID },
+          where: { tenantId },
           include: {
             shareholder: {
               select: {
@@ -93,43 +98,63 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.post('/users', { preHandler: requireRoles(RoleName.Admin) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = createUserSchema.parse(request.body);
     const exists = await prisma.user.findUnique({ where: { email: body.email } });
     if (exists) return reply.conflict('Email already exists');
 
     const passwordHash = await bcrypt.hash(body.password, 10);
-    const roles = await prisma.role.findMany({ where: { name: { in: body.roles } } });
 
     const user = await prisma.user.create({
       data: {
         email: body.email,
         passwordHash,
-        userRoles: { create: roles.map((r) => ({ roleId: r.id })) }
+        tenantUsers: {
+          create: {
+            tenantId,
+            roles: body.roles
+          }
+        }
       },
-      include: { userRoles: { include: { role: true } } }
+      include: {
+        userRoles: { include: { role: true } },
+        tenantUsers: {
+          where: { tenantId },
+          select: { tenantId: true, roles: true }
+        }
+      }
     });
 
-    await audit(prisma, request.userContext.id, 'CREATE', 'User', user.id, { email: body.email, roles: body.roles });
+    await audit(prisma, request.userContext.id, 'CREATE', 'TenantUser', user.id, { tenantId, email: body.email, roles: body.roles }, tenantId);
     return user;
   });
 
   app.put('/users/:id/roles', { preHandler: requireRoles(RoleName.Admin) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = updateRolesSchema.parse(request.body);
 
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return reply.notFound();
 
-    const roles = await prisma.role.findMany({ where: { name: { in: body.roles } } });
-
-    await prisma.$transaction(async (tx) => {
-      await tx.userRole.deleteMany({ where: { userId: id } });
-      if (roles.length) {
-        await tx.userRole.createMany({ data: roles.map((r) => ({ userId: id, roleId: r.id })) });
+    await prisma.tenantUser.upsert({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: id
+        }
+      },
+      update: {
+        roles: body.roles
+      },
+      create: {
+        tenantId,
+        userId: id,
+        roles: body.roles
       }
     });
 
-    await audit(prisma, request.userContext.id, 'UPDATE', 'UserRoles', id, { roles: body.roles });
+    await audit(prisma, request.userContext.id, 'UPDATE', 'TenantUserRoles', `${tenantId}:${id}`, { tenantId, roles: body.roles }, tenantId);
     return { ok: true };
   });
 
@@ -148,6 +173,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.put('/users/:id/shareholder-link', { preHandler: requireRoles(RoleName.Admin) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = setShareholderLinkSchema.parse(request.body);
 
@@ -157,32 +183,32 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!body.shareholderId) {
       await prisma.shareholderLink.deleteMany({
         where: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           userId: id
         }
       });
-      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${DEFAULT_TENANT_ID}:${id}`, {
-        tenantId: DEFAULT_TENANT_ID,
+      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${tenantId}:${id}`, {
+        tenantId,
         userId: id,
         shareholderId: null
-      });
+      }, tenantId);
       return { ok: true };
     }
 
     const shareholder = await prisma.shareholder.findFirst({
       where: {
         id: body.shareholderId,
-        tenantId: DEFAULT_TENANT_ID
+        tenantId
       }
     });
     if (!shareholder) {
-      return reply.badRequest('Shareholder not found in default tenant.');
+      return reply.badRequest('Shareholder not found in this tenant.');
     }
 
     await prisma.shareholderLink.upsert({
       where: {
         tenantId_userId: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId,
           userId: id
         }
       },
@@ -190,17 +216,17 @@ export async function adminRoutes(app: FastifyInstance) {
         shareholderId: body.shareholderId
       },
       create: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         userId: id,
         shareholderId: body.shareholderId
       }
     });
 
-    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${DEFAULT_TENANT_ID}:${id}`, {
-      tenantId: DEFAULT_TENANT_ID,
+    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${tenantId}:${id}`, {
+      tenantId,
       userId: id,
       shareholderId: body.shareholderId
-    });
+    }, tenantId);
 
     return { ok: true };
   });
@@ -223,14 +249,16 @@ export async function adminRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/email-settings', { preHandler: requireRoles(RoleName.Admin) }, async () => {
-    const settings = await getOrCreateEmailSettings(prisma);
+  app.get('/email-settings', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
+    const settings = await getOrCreateEmailSettings(prisma, undefined, tenantId);
     return asDto(settings);
   });
 
   app.put('/email-settings', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = emailSettingsUpdateSchema.parse(request.body);
-    const existing = await getOrCreateEmailSettings(prisma);
+    const existing = await getOrCreateEmailSettings(prisma, undefined, tenantId);
 
     const providedPassword = typeof body.smtpPassword === 'string' ? body.smtpPassword.trim() : '';
     const passwordChanged = providedPassword.length > 0;
@@ -301,12 +329,13 @@ export async function adminRoutes(app: FastifyInstance) {
       fromEmail: saved.fromEmail,
       replyTo: saved.replyTo,
       passwordChanged
-    });
+    }, tenantId);
 
     return asDto(saved);
   });
 
   app.post('/email-settings/test', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const body = emailSettingsTestSchema.parse(request.body);
     const sentAt = new Date().toISOString();
     const subject = 'StockForge Email Test';
@@ -321,6 +350,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
       await writeEmailLog({
         type: 'EMAIL_TEST',
+        tenantId,
         to: body.toEmail,
         subject,
         status: 'SENT',
@@ -331,7 +361,7 @@ export async function adminRoutes(app: FastifyInstance) {
       await audit(prisma, request.userContext.id, 'CREATE', 'EmailTest', 'global', {
         toEmail: body.toEmail,
         success: true
-      });
+      }, tenantId);
 
       return { ok: true };
     } catch (error: any) {
@@ -339,6 +369,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
       await writeEmailLog({
         type: 'EMAIL_TEST',
+        tenantId,
         to: body.toEmail,
         subject,
         status: 'FAILED',
@@ -351,14 +382,16 @@ export async function adminRoutes(app: FastifyInstance) {
         toEmail: body.toEmail,
         success: false,
         error: safeMessage
-      });
+      }, tenantId);
 
       return { ok: false, error: safeMessage };
     }
   });
 
-  app.get('/email-logs', { preHandler: requireRoles(RoleName.Admin) }, async () => {
+  app.get('/email-logs', { preHandler: requireRoles(RoleName.Admin) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     return prisma.emailLog.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' },
       take: 100
     });

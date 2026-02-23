@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
 import { getExcludeDisputed, getShareholderActiveShares } from '../lib/voting.js';
+import { DEFAULT_TENANT_ID, resolveTenantIdForRequest } from '../lib/tenant.js';
 
 function shareholderName(s: { firstName: string | null; lastName: string | null; entityName: string | null }) {
   return s.entityName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim();
@@ -115,9 +116,9 @@ function renderSimplePdf(title: string, subtitle: string, columns: PdfColumn[], 
   });
 }
 
-export async function buildMeetingReportPdf(meetingId: string) {
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
+export async function buildMeetingReportPdf(meetingId: string, tenantId = DEFAULT_TENANT_ID) {
+  const meeting = await prisma.meeting.findFirst({
+    where: { id: meetingId, tenantId },
     include: {
       snapshot: true,
       attendance: { include: { shareholder: true } },
@@ -133,7 +134,7 @@ export async function buildMeetingReportPdf(meetingId: string) {
   let presentShares = 0;
   const presentRows = meeting.attendance.filter((a) => a.present);
   for (const row of presentRows) {
-    presentShares += await getShareholderActiveShares(prisma, row.shareholderId);
+    presentShares += await getShareholderActiveShares(prisma, row.shareholderId, tenantId);
   }
   const proxyShares = meeting.proxies
     .filter((p) => p.status === 'Verified')
@@ -268,9 +269,10 @@ export async function buildMeetingReportPdf(meetingId: string) {
 }
 
 export async function reportRoutes(app: FastifyInstance) {
-  app.get('/cap-table.csv', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (_request, reply) => {
-    const excludeDisputed = await getExcludeDisputed(prisma);
-    const rows = await prisma.shareholder.findMany({ include: { lots: true } });
+  app.get('/cap-table.csv', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
+    const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
+    const rows = await prisma.shareholder.findMany({ where: { tenantId }, include: { lots: true } });
 
     const data = rows.map((s) => {
       const ownerExcluded =
@@ -298,9 +300,10 @@ export async function reportRoutes(app: FastifyInstance) {
     return reply.send(csv);
   });
 
-  app.get('/cap-table.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (_request, reply) => {
-    const excludeDisputed = await getExcludeDisputed(prisma);
-    const rows = await prisma.shareholder.findMany({ include: { lots: true } });
+  app.get('/cap-table.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
+    const excludeDisputed = await getExcludeDisputed(prisma, tenantId);
+    const rows = await prisma.shareholder.findMany({ where: { tenantId }, include: { lots: true } });
 
     const data = rows.map((s) => {
       const ownerExcluded =
@@ -343,9 +346,14 @@ export async function reportRoutes(app: FastifyInstance) {
   });
 
   app.get('/meeting-proxy.csv', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { meetingId } = z.object({ meetingId: z.string() }).parse(request.query);
+
+    const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, tenantId }, select: { id: true } });
+    if (!meeting) return reply.notFound();
+
     const proxies = await prisma.proxy.findMany({
-      where: { meetingId },
+      where: { meetingId, tenantId },
       include: { grantor: true }
     });
 
@@ -366,10 +374,12 @@ export async function reportRoutes(app: FastifyInstance) {
   });
 
   app.get('/meeting-proxy.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { meetingId } = z.object({ meetingId: z.string() }).parse(request.query);
-    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { title: true, dateTime: true } });
+    const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, tenantId }, select: { title: true, dateTime: true } });
+    if (!meeting) return reply.notFound();
     const proxies = await prisma.proxy.findMany({
-      where: { meetingId },
+      where: { meetingId, tenantId },
       include: { grantor: true }
     });
 
@@ -398,8 +408,9 @@ export async function reportRoutes(app: FastifyInstance) {
   });
 
   app.get('/meeting-report.pdf', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request, reply) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const { meetingId } = z.object({ meetingId: z.string() }).parse(request.query);
-    const generated = await buildMeetingReportPdf(meetingId);
+    const generated = await buildMeetingReportPdf(meetingId, tenantId);
     if (!generated) return reply.notFound();
 
     reply.header('Content-Type', 'application/pdf');

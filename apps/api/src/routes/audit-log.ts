@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireRoles } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
+import { resolveTenantIdForRequest } from '../lib/tenant.js';
 
 const querySchema = z.object({
   entityType: z.string().optional(),
@@ -15,10 +16,12 @@ const querySchema = z.object({
 
 export async function auditLogRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.ReadOnly) }, async (request) => {
+    const tenantId = await resolveTenantIdForRequest(request);
     const q = querySchema.parse(request.query);
 
     return prisma.auditLog.findMany({
       where: {
+        tenantId,
         entityType: q.entityType || undefined,
         action: q.action || undefined,
         userId: q.userId || undefined,
