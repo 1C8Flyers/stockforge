@@ -9,7 +9,7 @@ import { encryptSecret } from '../lib/email-crypto.js';
 import { getOrCreateEmailSettings } from '../lib/email-settings.js';
 import { writeEmailLog } from '../lib/email-log.js';
 import { resetMailerCache, sendMail, verifyMailer } from '../services/mailer.js';
-import { requireTenantMembership } from '../lib/tenant.js';
+import { DEFAULT_TENANT_ID, requireTenantMembership } from '../lib/tenant.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -23,6 +23,10 @@ const updateRolesSchema = z.object({
 
 const resetPasswordSchema = z.object({
   password: z.string().min(8)
+});
+
+const setShareholderLinkSchema = z.object({
+  shareholderId: z.string().nullable()
 });
 
 const emailSettingsUpdateSchema = z.object({
@@ -68,7 +72,22 @@ function asDto(settings: {
 export async function adminRoutes(app: FastifyInstance) {
   app.get('/users', { preHandler: requireRoles(RoleName.Admin) }, async () => {
     return prisma.user.findMany({
-      include: { userRoles: { include: { role: true } } },
+      include: {
+        userRoles: { include: { role: true } },
+        shareholderLinks: {
+          where: { tenantId: DEFAULT_TENANT_ID },
+          include: {
+            shareholder: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                entityName: true
+              }
+            }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
   });
@@ -125,6 +144,64 @@ export async function adminRoutes(app: FastifyInstance) {
     await prisma.user.update({ where: { id }, data: { passwordHash } });
 
     await audit(prisma, request.userContext.id, 'UPDATE', 'UserPassword', id);
+    return { ok: true };
+  });
+
+  app.put('/users/:id/shareholder-link', { preHandler: requireRoles(RoleName.Admin) }, async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = setShareholderLinkSchema.parse(request.body);
+
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) return reply.notFound();
+
+    if (!body.shareholderId) {
+      await prisma.shareholderLink.deleteMany({
+        where: {
+          tenantId: DEFAULT_TENANT_ID,
+          userId: id
+        }
+      });
+      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${DEFAULT_TENANT_ID}:${id}`, {
+        tenantId: DEFAULT_TENANT_ID,
+        userId: id,
+        shareholderId: null
+      });
+      return { ok: true };
+    }
+
+    const shareholder = await prisma.shareholder.findFirst({
+      where: {
+        id: body.shareholderId,
+        tenantId: DEFAULT_TENANT_ID
+      }
+    });
+    if (!shareholder) {
+      return reply.badRequest('Shareholder not found in default tenant.');
+    }
+
+    await prisma.shareholderLink.upsert({
+      where: {
+        tenantId_userId: {
+          tenantId: DEFAULT_TENANT_ID,
+          userId: id
+        }
+      },
+      update: {
+        shareholderId: body.shareholderId
+      },
+      create: {
+        tenantId: DEFAULT_TENANT_ID,
+        userId: id,
+        shareholderId: body.shareholderId
+      }
+    });
+
+    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${DEFAULT_TENANT_ID}:${id}`, {
+      tenantId: DEFAULT_TENANT_ID,
+      userId: id,
+      shareholderId: body.shareholderId
+    });
+
     return { ok: true };
   });
 

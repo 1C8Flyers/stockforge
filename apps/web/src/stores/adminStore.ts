@@ -20,6 +20,7 @@ function nowTime() {
 export const useAdminStore = defineStore('admin', {
   state: () => ({
     users: [] as any[],
+    shareholders: [] as any[],
     emailLogs: [] as any[],
     config: {
       loaded: false,
@@ -138,7 +139,9 @@ export const useAdminStore = defineStore('admin', {
       this.loading.users = true;
       this.setError('users', '');
       try {
-        this.users = (await api.get('/admin/users')).data;
+        const [users, shareholders] = await Promise.all([api.get('/admin/users'), api.get('/shareholders')]);
+        this.users = users.data;
+        this.shareholders = shareholders.data;
       } catch (error: any) {
         this.setError('users', error?.response?.data?.message || 'Unable to load users.');
       } finally {
@@ -179,6 +182,19 @@ export const useAdminStore = defineStore('admin', {
         this.markSaved('users', 'Password reset ✓');
       } catch (error: any) {
         this.setError('users', error?.response?.data?.message || 'Unable to reset password.');
+      } finally {
+        this.saving.users = false;
+      }
+    },
+    async setUserShareholderLink(userId: string, shareholderId: string | null) {
+      this.saving.users = true;
+      this.setError('users', '');
+      try {
+        await api.put(`/admin/users/${userId}/shareholder-link`, { shareholderId });
+        await this.loadUsers();
+        this.markSaved('users', shareholderId ? 'Shareholder link updated ✓' : 'Shareholder link cleared ✓');
+      } catch (error: any) {
+        this.setError('users', error?.response?.data?.message || 'Unable to update shareholder link.');
       } finally {
         this.saving.users = false;
       }

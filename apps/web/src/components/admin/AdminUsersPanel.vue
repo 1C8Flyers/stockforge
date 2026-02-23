@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="text-base font-semibold text-slate-900">Users & Roles</h3>
-        <p class="text-sm text-slate-600">Manage users, role assignments, and admin password resets.</p>
+        <p class="text-sm text-slate-600">Manage users, role assignments, password resets, and portal shareholder links.</p>
       </div>
       <Button variant="secondary" :loading="store.loading.users" @click="store.loadUsers">Refresh</Button>
     </div>
@@ -30,6 +30,7 @@
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Email</th>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Roles</th>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Set Roles</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Portal Shareholder</th>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Reset Password</th>
           </tr>
         </thead>
@@ -44,6 +45,27 @@
                 <label><input type="checkbox" :checked="hasRole(u.id, 'Clerk')" @change="toggleRole(u.id, 'Clerk', ($event.target as HTMLInputElement).checked)" />Clerk</label>
                 <label><input type="checkbox" :checked="hasRole(u.id, 'ReadOnly')" @change="toggleRole(u.id, 'ReadOnly', ($event.target as HTMLInputElement).checked)" />ReadOnly</label>
                 <Button size="sm" variant="secondary" :loading="store.saving.users" @click="saveRoles(u.id)">Save</Button>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <div class="flex min-w-[280px] items-center gap-2">
+                <select
+                  v-model="draftShareholderLinks[u.id]"
+                  class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                >
+                  <option value="">No link</option>
+                  <option v-for="s in store.shareholders" :key="s.id" :value="s.id">
+                    {{ shareholderLabel(s) }}
+                  </option>
+                </select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  :loading="store.saving.users"
+                  @click="saveShareholderLink(u.id)"
+                >
+                  Save
+                </Button>
               </div>
             </td>
             <td class="px-4 py-3 text-sm">
@@ -72,14 +94,21 @@ const store = useAdminStore();
 
 const newUser = ref({ email: '', password: '', roles: ['ReadOnly'] as string[] });
 const draftRoles = ref<Record<string, string[]>>({});
+const draftShareholderLinks = ref<Record<string, string>>({});
 const passwords = ref<Record<string, string>>({});
 
 watch(
   () => store.users,
   (users) => {
     const next: Record<string, string[]> = {};
+    const nextLinks: Record<string, string> = {};
     for (const user of users) next[user.id] = user.userRoles.map((r: any) => r.role.name);
+    for (const user of users) {
+      const current = user.shareholderLinks?.[0]?.shareholderId;
+      nextLinks[user.id] = current || '';
+    }
     draftRoles.value = next;
+    draftShareholderLinks.value = nextLinks;
   },
   { immediate: true, deep: true }
 );
@@ -108,6 +137,18 @@ const saveRoles = async (userId: string) => {
   const roles = draftRoles.value[userId] || [];
   if (!roles.length) return;
   await store.updateUserRole(userId, roles);
+};
+
+const shareholderLabel = (shareholder: any) => {
+  if (shareholder.entityName) return shareholder.entityName;
+  const name = `${shareholder.firstName || ''} ${shareholder.lastName || ''}`.trim();
+  if (name) return name;
+  return shareholder.id;
+};
+
+const saveShareholderLink = async (userId: string) => {
+  const shareholderId = draftShareholderLinks.value[userId] || null;
+  await store.setUserShareholderLink(userId, shareholderId);
 };
 
 const resetPassword = async (userId: string) => {

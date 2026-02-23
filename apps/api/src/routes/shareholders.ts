@@ -23,6 +23,10 @@ const schema = z.object({
   tags: z.array(z.string()).optional().default([])
 });
 
+const setPortalLinkSchema = z.object({
+  userId: z.string().nullable()
+});
+
 export async function shareholderRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer, RoleName.Clerk, RoleName.ReadOnly) }, async (request) => {
     const query = z.object({ q: z.string().optional() }).parse(request.query);
@@ -37,9 +41,32 @@ export async function shareholderRoutes(app: FastifyInstance) {
             ]
           }
         : undefined,
+      include: {
+        shareholderLinks: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          },
+          take: 1
+        }
+      },
       orderBy: [{ lastName: 'asc' }, { entityName: 'asc' }]
     });
     return rows;
+  });
+
+  app.get('/portal-users', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async () => {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        email: true
+      },
+      orderBy: { email: 'asc' }
+    });
   });
 
   app.post('/', { preHandler: requireRoles(...canWriteRoles) }, async (request) => {
@@ -88,6 +115,66 @@ export async function shareholderRoutes(app: FastifyInstance) {
     const updated = await prisma.shareholder.update({ where: { id }, data: body });
     await audit(prisma, request.userContext.id, 'UPDATE', 'Shareholder', id, { before: existing, after: updated });
     return updated;
+  });
+
+  app.put('/:id/portal-link', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = setPortalLinkSchema.parse(request.body);
+
+    const shareholder = await prisma.shareholder.findUnique({ where: { id } });
+    if (!shareholder) return reply.notFound();
+
+    if (!body.userId) {
+      await prisma.shareholderLink.deleteMany({
+        where: {
+          tenantId: shareholder.tenantId,
+          shareholderId: id
+        }
+      });
+      await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${shareholder.tenantId}:${id}`, {
+        tenantId: shareholder.tenantId,
+        shareholderId: id,
+        userId: null
+      }, shareholder.tenantId);
+      return { ok: true };
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: body.userId } });
+    if (!user) {
+      return reply.badRequest('User not found.');
+    }
+
+    try {
+      await prisma.shareholderLink.upsert({
+        where: {
+          tenantId_shareholderId: {
+            tenantId: shareholder.tenantId,
+            shareholderId: id
+          }
+        },
+        update: {
+          userId: body.userId
+        },
+        create: {
+          tenantId: shareholder.tenantId,
+          shareholderId: id,
+          userId: body.userId
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return reply.conflict('That user or shareholder is already linked in this tenant.');
+      }
+      throw error;
+    }
+
+    await audit(prisma, request.userContext.id, 'UPDATE', 'ShareholderLink', `${shareholder.tenantId}:${id}`, {
+      tenantId: shareholder.tenantId,
+      shareholderId: id,
+      userId: body.userId
+    }, shareholder.tenantId);
+
+    return { ok: true };
   });
 
   app.delete('/:id', { preHandler: requireRoles(RoleName.Admin, RoleName.Officer) }, async (request, reply) => {

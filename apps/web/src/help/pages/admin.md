@@ -4,7 +4,7 @@
 - Central admin controls for users, branding, voting, email, and system checks.
 
 ## Tabs
-- **Users & Roles**: create users, edit roles, reset passwords.
+- **Users & Roles**: create users, edit roles, reset passwords, and link a user to a portal shareholder profile.
 - **Branding**: app name/logo/incorporation/public URL.
 - **Voting / Governance**: voting exclusion configuration.
 - **Email**: SMTP settings, feature toggles, test email, and logs.

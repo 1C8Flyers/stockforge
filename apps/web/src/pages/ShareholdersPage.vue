@@ -31,6 +31,7 @@
               <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
               <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
               <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Portal User</th>
               <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
               <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Address</th>
               <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
@@ -41,6 +42,7 @@
               <td class="px-4 py-3 text-sm text-slate-900">{{ displayName(s) }}</td>
               <td class="px-4 py-3 text-sm text-slate-600">{{ s.type }}</td>
               <td class="px-4 py-3 text-sm text-slate-600">{{ s.status }}</td>
+              <td class="px-4 py-3 text-sm text-slate-600">{{ linkedPortalEmail(s) }}</td>
               <td class="px-4 py-3 text-sm text-slate-600">{{ [s.email, s.phone].filter(Boolean).join(' · ') || '—' }}</td>
               <td class="px-4 py-3 text-sm text-slate-600">{{ displayAddress(s) }}</td>
               <td class="px-4 py-3 text-right">
@@ -82,6 +84,7 @@
               </template>
             </DropdownMenu>
           </div>
+          <p class="mt-1 text-sm text-slate-500">Portal user: {{ linkedPortalEmail(s) }}</p>
           <p class="mt-2 text-sm text-slate-600">{{ [s.email, s.phone].filter(Boolean).join(' · ') || 'No contact info' }}</p>
           <p class="mt-1 text-sm text-slate-500">{{ displayAddress(s) }}</p>
         </article>
@@ -121,6 +124,11 @@
             <option value="DeceasedOutstanding">DeceasedOutstanding</option>
             <option value="DeceasedSurrendered">DeceasedSurrendered</option>
           </Select>
+
+          <Select v-if="canManagePortalAccess" v-model="form.portalUserId" label="Portal access user">
+            <option value="">No portal user linked</option>
+            <option v-for="u in portalUsers" :key="u.id" :value="u.id">{{ u.email }}</option>
+          </Select>
         </div>
 
         <div class="flex justify-end gap-2 border-t border-slate-200 p-4">
@@ -158,6 +166,7 @@ const rows = ref<any[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const search = ref('');
+const portalUsers = ref<Array<{ id: string; email: string }>>([]);
 const drawerOpen = ref(false);
 const confirmDeleteOpen = ref(false);
 const deleteId = ref<string | null>(null);
@@ -175,7 +184,8 @@ const emptyForm = () => ({
   city: '',
   state: '',
   postalCode: '',
-  status: 'Active'
+  status: 'Active',
+  portalUserId: ''
 });
 
 const form = ref(emptyForm());
@@ -183,9 +193,11 @@ const editingId = ref<string | null>(null);
 const auth = useAuthStore();
 const canWrite = computed(() => auth.canWrite);
 const canDelete = computed(() => auth.canPost);
+const canManagePortalAccess = computed(() => auth.canPost);
 
 const displayName = (s: any) => s.entityName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
 const displayAddress = (s: any) => [s.address1, s.address2, s.city, s.state, s.postalCode].filter(Boolean).join(', ') || '—';
+const linkedPortalEmail = (s: any) => s.shareholderLinks?.[0]?.user?.email || '—';
 
 const filteredRows = computed(() => {
   const query = search.value.trim().toLowerCase();
@@ -206,6 +218,11 @@ const load = async () => {
   }
 };
 
+const loadPortalUsers = async () => {
+  if (!canManagePortalAccess.value) return;
+  portalUsers.value = (await api.get('/shareholders/portal-users')).data;
+};
+
 const openCreateDrawer = () => {
   editingId.value = null;
   form.value = emptyForm();
@@ -215,11 +232,23 @@ const openCreateDrawer = () => {
 const save = async () => {
   isSaving.value = true;
   try {
+    let shareholderId = editingId.value;
     if (editingId.value) {
-      await api.put(`/shareholders/${editingId.value}`, { ...form.value });
+      await api.put(`/shareholders/${editingId.value}`, {
+        ...form.value,
+        portalUserId: undefined
+      });
     } else {
-      await api.post('/shareholders', { ...form.value, tags: [] });
+      const created = (await api.post('/shareholders', { ...form.value, portalUserId: undefined, tags: [] })).data;
+      shareholderId = created.id;
     }
+
+    if (canManagePortalAccess.value && shareholderId) {
+      await api.put(`/shareholders/${shareholderId}/portal-link`, {
+        userId: form.value.portalUserId || null
+      });
+    }
+
     cancelEdit();
     await load();
   } finally {
@@ -241,7 +270,8 @@ const startEdit = (s: any) => {
     city: s.city || '',
     state: s.state || '',
     postalCode: s.postalCode || '',
-    status: s.status || 'Active'
+    status: s.status || 'Active',
+    portalUserId: s.shareholderLinks?.[0]?.userId || ''
   };
   drawerOpen.value = true;
 };
@@ -274,4 +304,5 @@ const cancelEdit = () => {
 };
 
 onMounted(load);
+onMounted(loadPortalUsers);
 </script>
