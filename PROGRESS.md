@@ -38,6 +38,18 @@
 	- draft actions now include Post / Edit / Cancel
 	- notes captured on transfer creation
 - Lot certificate enhancements completed:
+
+- Portal access linking enhancements completed:
+	- Admin Users panel supports mapping user -> shareholder portal profile
+	- Shareholders page now supports primary portal-access assignment workflow
+	- portal link updates are auditable and tenant-scoped
+- Tenant routing migration enhancements completed:
+	- API tenant resolution supports host/subdomain lookup with route fallback
+	- Web supports both `/portal/*` and `/t/:tenantSlug/portal/*` routes
+	- Optional slug -> subdomain redirect support via `VITE_TENANT_BASE_DOMAIN`
+- Documentation enhancements completed:
+	- Added root-level `INSTRUCTIONS.md` runbook
+	- Linked runbook from `README.md`
 	- certificate number input added to Lots UI
 	- auto-certificate generation starts at `1000` when blank
 	- lot edit workflow exposed in UI

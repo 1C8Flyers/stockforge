@@ -1,5 +1,14 @@
 # Cottonwood Share Manager — User Manual
 
+## Update (2026-02-23)
+- Shareholder portal access management now supports linking from both:
+	- **Shareholders** page (recommended primary workflow), and
+	- **Admin > Users & Roles** (quick assignment workflow).
+- Portal routing now supports both URL styles during migration:
+	- slug path mode (`/t/:tenantSlug/portal/...`), and
+	- host/subdomain mode (`/portal/...` on tenant subdomains).
+- See [INSTRUCTIONS.md](INSTRUCTIONS.md) for operational steps, smoke checks, and subdomain configuration.
+
 ## 1) What this app does
 Cottonwood Share Manager is used to manage:
 - Shareholders

@@ -1,5 +1,8 @@
 # Lots Help
 
+## Update (2026-02-23)
+- Lot workflows unchanged; latest cycle delivered portal-access linking and tenant routing dual-mode support.
+
 ## What this page does
 - Manage share lots (certificates) and ownership.
 - Print Original/Reprint certificate PDFs.

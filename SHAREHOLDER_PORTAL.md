@@ -15,6 +15,16 @@ Constraints / principles:
 - Add server-side authorization checks everywhere; do not rely on frontend.
 - Add minimal UI that is clean and works on mobile.
 
+## Update (2026-02-23)
+
+- [x] Portal user linking now manageable from **Shareholder records** (primary workflow).
+- [x] Admin Users retains a shortcut link control for quick assignments.
+- [x] Portal now supports both tenant URL modes:
+   - host/subdomain mode (`/portal/...` on tenant subdomain host), and
+   - slug fallback mode (`/t/:tenantSlug/portal/...`).
+- [x] API tenant resolution now supports host-based detection with route fallback.
+- [x] Deployed and smoke-validated on NAS after rollout.
+
 Deliverables:
 A) Prisma schema changes
 B) API routes (Fastify) for portal

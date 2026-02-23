@@ -1,5 +1,10 @@
 Repo: https://github.com/1C8Flyers/stockforge
 
+Status update (2026-02-23):
+- Email settings/test/logs workflow remains live in Admin.
+- Portal rollout follow-up completed with shareholder/user link management and dual-mode tenant routing support.
+- Operational and deployment instructions consolidated in `INSTRUCTIONS.md`.
+
 Context / current state
 - Admin can reset user passwords today via apps/api/src/routes/admin.ts (PUT /admin/users/:id/password). :contentReference[oaicite:1]{index=1}
 - Meeting report PDF export exists and includes meeting summary, attendance, proxies, motions, vote details. :contentReference[oaicite:2]{index=2}

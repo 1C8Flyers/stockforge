@@ -1,5 +1,9 @@
 # User Manual Help
 
+## Update (2026-02-23)
+- Root runbook and deployment notes now live in `INSTRUCTIONS.md`.
+- Portal supports both slug and host/subdomain URL modes during migration.
+
 ## What this page does
 - Displays the full operational manual as Markdown.
 

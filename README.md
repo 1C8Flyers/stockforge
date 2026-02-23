@@ -5,6 +5,8 @@ Monorepo structure:
 - apps/web: Vue 3 + TypeScript + Vite + Router + Pinia
 - packages/shared: shared TS types
 
+Operational runbook and latest deployment notes: [INSTRUCTIONS.md](INSTRUCTIONS.md)
+
 ## Project structure
 - apps/api: REST API, auth, RBAC, Prisma schema/migrations, seed, uploads
 - apps/web: Vue UI for dashboard/shareholders/lots/transfers/meetings/reports
@@ -149,6 +151,8 @@ Environment/CORS for proxy deployment:
 - Lots: Admin/Officer can manually email certificates when enabled in Email Preferences (shareholder-facing feature remains off by default)
 - Admin: email logs table added (last 100 sends with status/error-safe details)
 - Admin: page refactored into query-param tabs (`/admin?tab=users|branding|voting|email|system`) with lazy tab loading and status badges
+- Portal: portal-user linking can now be managed from Shareholders (primary) and Admin Users (shortcut)
+- Portal: dual-mode tenant routing now supports both `/portal/*` (host/subdomain mode) and `/t/:tenantSlug/portal/*` (fallback mode)
 
 ## Troubleshooting
 ### `ERR_CONNECTION_REFUSED` to `localhost:3000/api`

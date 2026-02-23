@@ -1,5 +1,8 @@
 # Reports Help
 
+## Update (2026-02-23)
+- Report workflows unchanged; operational deployment and portal routing updates are documented in `INSTRUCTIONS.md`.
+
 ## What this page does
 - Export ownership and meeting documents.
 - Email meeting report PDFs to configured recipients.

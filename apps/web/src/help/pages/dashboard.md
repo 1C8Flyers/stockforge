@@ -1,5 +1,8 @@
 # Dashboard Help
 
+## Update (2026-02-23)
+- Dashboard context now coexists with portal dual-route migration and tenant host-mode support.
+
 ## What this page shows
 - Active voting shares
 - Excluded share breakdown

@@ -1,5 +1,8 @@
 # Meetings Help
 
+## Update (2026-02-23)
+- Meeting workflows unchanged; tenant/portal routing now supports both slug and host/subdomain modes.
+
 ## What this page does
 - Manage meetings, attendance, proxies, motions, and votes.
 - Track represented shares and voting outcomes.

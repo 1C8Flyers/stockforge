@@ -15,3 +15,15 @@ Commit: `bf8f5dc`
   - cross-tenant revoke is blocked,
   - same-tenant revoke sets status to `REVOKED` without deleting the record.
 - Updated implementation tracker in `SHAREHOLDER_PORTAL.md` to reflect completion and test outcomes.
+
+## Follow-up Update — 2026-02-23
+
+Commit: `2d2b190`, `e228ae7`
+
+- Added Shareholder-centric portal access management so admins can link/unlink portal users directly from Shareholder records.
+- Kept Admin Users shortcut controls for linking users to shareholder profiles.
+- Added dual-mode tenant URL support during migration:
+  - host/subdomain portal routes (`/portal/...`),
+  - legacy slug routes (`/t/:tenantSlug/portal/...`) retained as fallback.
+- Added host-aware tenant resolution on API side with route-param fallback.
+- Added deployment/operations documentation in `INSTRUCTIONS.md` and linked it from the main README.

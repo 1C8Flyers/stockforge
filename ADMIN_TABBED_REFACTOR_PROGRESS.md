@@ -21,7 +21,9 @@ Refactor `/admin` UI into a tabbed layout in `apps/web/src/pages/AdminPage.vue`,
 - [x] Added lazy-load per tab (first visit)
 - [x] Added small transition between tab panels
 - [x] Added panel-level saved/error messaging and “Last saved at HH:MM” footer where applicable
+- [x] Added portal-shareholder linking controls in Users panel (user -> shareholder shortcut)
+- [x] Build verification completed after portal-linking updates
 
 ## Remaining
-- [ ] Run `apps/web` type/build verification and fix any regressions
+- [x] Run `apps/web` type/build verification and fix any regressions
 - [ ] Optional UI polish pass after manual QA on mobile breakpoints
